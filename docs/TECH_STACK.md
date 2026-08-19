@@ -1,4 +1,4 @@
-# Tech Stack — Virtual Bank Bot
+# Tech Stack — Power Bank Bot
 
 **Status:** decided, 2026-08-19
 **Language:** Python 3.12+
@@ -118,53 +118,70 @@ unchanged image (e.g. a static coin graphic) should never re-render or re-upload
 
 ---
 
-## Planned layout
+## Layout
+
+Everything lives under one `powerbank/` package. Dependencies point one
+direction only — an inner layer never imports an outer one:
 
 ```
-virtual-bank-bot/
-├── bot/
-│   ├── __init__.py
-│   ├── main.py              # entrypoint, dispatcher setup
-│   ├── config.py            # pydantic-settings
-│   ├── handlers/            # one router per feature area
-│   │   ├── start.py
-│   │   ├── balance.py
-│   │   └── transfer.py
-│   ├── keyboards/
-│   ├── middlewares/         # throttling, db session injection, user loading
-│   ├── services/            # business logic — no aiogram imports in here
-│   │   ├── accounts.py
-│   │   └── ledger.py
-│   └── render/
-│       ├── engine.py        # Pillow helpers: text fitting, layer paste
-│       └── cards.py         # render_balance_card, render_receipt, ...
-├── assets/
-│   ├── templates/           # pre-designed PNGs
-│   │   └── balance_card.png
-│   ├── layouts/             # JSON coordinate configs
-│   │   └── balance_card.json
-│   └── fonts/
-├── db/
-│   ├── models.py
-│   └── migrations/          # alembic
+core/      config, logging, exceptions     (depends on nothing)
+db/        models, session                 (-> core)
+services/  business logic, no aiogram      (-> db, core)
+render/    Pillow image generation         (-> core)
+bot/       telegram handlers, middlewares  (-> all of the above)
+```
+
+```
+power-bank-bot/
+├── powerbank/
+│   ├── __main__.py           # entrypoint: python -m powerbank
+│   ├── core/
+│   │   ├── config.py         # pydantic-settings, cached get_settings()
+│   │   ├── logging.py
+│   │   └── exceptions.py     # PowerBankError + user-safe messages
+│   ├── db/
+│   │   ├── base.py           # DeclarativeBase, naming convention, mixins
+│   │   ├── session.py        # engine, sessionmaker, session_scope()
+│   │   └── models/
+│   │       └── user.py
+│   ├── services/             # NO aiogram imports here
+│   │   └── users.py
+│   ├── render/               # Pillow (Phase 1b)
+│   └── bot/
+│       ├── factory.py        # the single wiring point
+│       ├── handlers/         # one router per feature area
+│       │   ├── __init__.py   # build_router(), registration order
+│       │   ├── start.py
+│       │   └── errors.py
+│       ├── middlewares/
+│       │   ├── database.py   # session per update, commit/rollback
+│       │   └── user.py       # resolves sender -> User, drops banned
+│       └── keyboards/
+├── assets/{templates,layouts,fonts}/
+├── migrations/               # alembic
 ├── tests/
-├── docs/
-│   └── TECH_STACK.md
-├── .env.example
-├── pyproject.toml
-└── Dockerfile
+├── docker-compose.yml        # postgres + bot
+├── Makefile                  # install / run / lint / test / migrate
+└── pyproject.toml            # uv
 ```
 
 **Key boundary:** `services/` contains no aiogram imports. Handlers translate
-Telegram updates into service calls. This keeps game logic testable without a bot
-running, and leaves the door open for a web dashboard later.
+Telegram updates into service calls, and services raise domain exceptions that
+the error router turns into user-facing text. Game logic stays testable without
+a bot running, and a web dashboard remains possible later.
+
+**Middleware contract:** handlers receive `session` and `user` as kwargs and
+never call `commit()` — `session_scope` commits on clean return, rolls back on
+exception. Registration order is significant: user lookup needs the session.
 
 ---
 
 ## Phase plan
 
-1. **Phase 1 (now)** — skeleton + render pipeline. `/card` command replies with a
-   pre-designed image with data drawn onto it. SQLite, minimal user table.
-2. **Phase 2** — accounts, ledger, transfers, transaction history.
-3. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
-4. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.
+1. **Phase 1a (done)** — skeleton: config, logging, DB session, user model +
+   service, middleware chain, `/start`, error handling, Alembic, Docker, tests.
+2. **Phase 1b (next)** — render pipeline. `/card` replies with a pre-designed
+   image with data drawn onto it.
+3. **Phase 2** — accounts, ledger, transfers, transaction history.
+4. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
+5. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.
