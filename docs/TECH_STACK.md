@@ -112,7 +112,38 @@ def render_balance_card(username: str, balance: int, avatar: Image | None) -> By
 Coordinates, font sizes, and colors live in a JSON config beside the template
 asset — **not** hardcoded in the function. We will move that text twenty times.
 
-### 5. Telegram file_id reuse
+### 5. Access is invite-only, enforced by middleware
+
+The bot is closed. A person may use it only if an admin put them in the
+database.
+
+**Roles** (`core/roles.py`): `none` < `user` < `admin` < `super_admin`.
+
+- `none` means "seen but not a member". Every sender is recorded regardless of
+  access -- that is what lets an admin search someone by @username later, and
+  gives a record of who tried to get in (`denied_attempts`, `last_denied_at`).
+- **Super admins come from `SUPER_ADMIN_IDS` only.** The bot cannot mint one,
+  because nobody can remove one -- a mistaken promotion would be permanent.
+  Seeding only ever promotes; dropping an id from the env never demotes, so a
+  config typo cannot strip access.
+
+**Permission matrix** -- pure predicates in `core/roles.py`, tested exhaustively:
+
+| Actor | Can grant | Can revoke |
+|---|---|---|
+| super_admin | user, admin | admin, user |
+| admin | user, admin | admin, user (never self) |
+| user | — | — |
+
+Nobody can revoke a super admin, and nobody can revoke themselves (for the last
+admin that would be unrecoverable).
+
+The gate is `AccessMiddleware`, registered last so it sees a resolved user.
+Handlers therefore never check access themselves. Admin handlers are filtered by
+`IsStaff` *and* re-checked in the service layer, so a filter mistake alone
+cannot escalate rights.
+
+### 6. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
 unchanged image (e.g. a static coin graphic) should never re-render or re-upload.
 
@@ -138,6 +169,7 @@ power-bank-bot/
 │   ├── core/
 │   │   ├── config.py         # pydantic-settings, cached get_settings()
 │   │   ├── logging.py
+│   │   ├── roles.py          # Role enum + permission predicates (no I/O)
 │   │   └── exceptions.py     # PowerBankError + user-safe messages
 │   ├── db/
 │   │   ├── base.py           # DeclarativeBase, naming convention, mixins
@@ -145,17 +177,21 @@ power-bank-bot/
 │   │   └── models/
 │   │       └── user.py
 │   ├── services/             # NO aiogram imports here
-│   │   └── users.py
+│   │   ├── users.py          # contact log, lookup by id/@username
+│   │   └── access.py         # grant/revoke, super-admin seeding
 │   ├── render/               # Pillow (Phase 1b)
 │   └── bot/
 │       ├── factory.py        # the single wiring point
+│       ├── filters.py        # HasRole / IsStaff / IsSuperAdmin
 │       ├── handlers/         # one router per feature area
 │       │   ├── __init__.py   # build_router(), registration order
+│       │   ├── admin.py      # /add /remove /members /who /attempts
 │       │   ├── start.py
 │       │   └── errors.py
 │       ├── middlewares/
 │       │   ├── database.py   # session per update, commit/rollback
-│       │   └── user.py       # resolves sender -> User, drops banned
+│       │   ├── user.py       # resolves + logs sender (grants nothing)
+│       │   └── access.py     # the gate: non-members stop here
 │       └── keyboards/
 ├── assets/{templates,layouts,fonts}/
 ├── migrations/               # alembic
@@ -180,8 +216,10 @@ exception. Registration order is significant: user lookup needs the session.
 
 1. **Phase 1a (done)** — skeleton: config, logging, DB session, user model +
    service, middleware chain, `/start`, error handling, Alembic, Docker, tests.
-2. **Phase 1b (next)** — render pipeline. `/card` replies with a pre-designed
+2. **Phase 1b (done)** — roles and invite-only access: three ranks, env-seeded
+   super admins, admin commands, access gate, attempt tracking.
+3. **Phase 1c (next)** — render pipeline. `/card` replies with a pre-designed
    image with data drawn onto it.
-3. **Phase 2** — accounts, ledger, transfers, transaction history.
-4. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
-5. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.
+4. **Phase 2** — accounts, ledger, transfers, transaction history.
+5. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
+6. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.

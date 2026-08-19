@@ -7,6 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from powerbank.bot.handlers import build_router
+from powerbank.bot.middlewares.access import AccessMiddleware
 from powerbank.bot.middlewares.database import DatabaseMiddleware
 from powerbank.bot.middlewares.user import UserMiddleware
 from powerbank.core.config import Settings
@@ -31,9 +32,13 @@ def create_dispatcher(
     dp["settings"] = settings
 
     # Outer middlewares run before filters, so filters can use the session and
-    # the resolved user. Order is significant: user lookup needs the session.
+    # the resolved user. Order is significant and enforced by tests:
+    #   database -> opens the session everything else needs
+    #   user     -> resolves + logs the sender (grants nothing)
+    #   access   -> stops non-members before any handler or filter runs
     dp.update.outer_middleware(DatabaseMiddleware(session_factory))
     dp.update.outer_middleware(UserMiddleware())
+    dp.update.outer_middleware(AccessMiddleware())
 
     dp.include_router(build_router())
     return dp

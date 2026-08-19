@@ -1,7 +1,10 @@
-"""Resolves the Telegram sender into our own User row.
+"""Resolves the Telegram sender into our own User row and logs the contact.
+
+Every sender is recorded, member or not -- that is what lets admins search for
+someone by @username later, and gives us a record of who tried to get in.
+Recording grants no access; that decision belongs to AccessMiddleware.
 
 Runs after DatabaseMiddleware, so `data["session"]` is already present.
-Handlers receive a ready `user` and never do lookup themselves.
 """
 
 import logging
@@ -12,7 +15,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from aiogram.types import User as TgUser
 
-from powerbank.services.users import TelegramIdentity, get_or_create
+from powerbank.services.users import TelegramIdentity, record_contact
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ class UserMiddleware(BaseMiddleware):
         if tg_user is None or tg_user.is_bot:
             return await handler(event, data)
 
-        user, created = await get_or_create(
+        user = await record_contact(
             data["session"],
             TelegramIdentity(
                 telegram_id=tg_user.id,
@@ -40,14 +43,6 @@ class UserMiddleware(BaseMiddleware):
                 language_code=tg_user.language_code,
             ),
         )
-
-        if created:
-            log.info("Registered new user tg=%s @%s", tg_user.id, tg_user.username)
-
-        # Banned users are dropped here so no handler has to check.
-        if user.is_banned:
-            log.info("Ignoring update from banned user tg=%s", tg_user.id)
-            return None
 
         data["user"] = user
         return await handler(event, data)

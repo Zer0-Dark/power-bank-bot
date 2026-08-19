@@ -8,6 +8,7 @@ fixture rather than building one per test.
 import pytest
 
 from powerbank.bot.factory import create_dispatcher
+from powerbank.bot.middlewares.access import AccessMiddleware
 from powerbank.bot.middlewares.database import DatabaseMiddleware
 from powerbank.bot.middlewares.user import UserMiddleware
 from powerbank.core.config import Settings
@@ -32,15 +33,21 @@ def test_middlewares_registered_in_order(dispatcher):
     ours = [
         m
         for m in dispatcher.update.outer_middleware
-        if isinstance(m, DatabaseMiddleware | UserMiddleware)
+        if isinstance(m, DatabaseMiddleware | UserMiddleware | AccessMiddleware)
     ]
-    # Order matters: user lookup needs the session the database middleware opens.
-    assert [type(m) for m in ours] == [DatabaseMiddleware, UserMiddleware]
+    # Order is load-bearing: user lookup needs the session, and the access gate
+    # must come last so it sees a resolved user. Getting this wrong would let
+    # non-members through, so it is asserted rather than assumed.
+    assert [type(m) for m in ours] == [
+        DatabaseMiddleware,
+        UserMiddleware,
+        AccessMiddleware,
+    ]
 
 
 def test_feature_routers_are_attached(dispatcher):
     root = dispatcher.sub_routers[0]
-    assert {r.name for r in root.sub_routers} == {"start", "errors"}
+    assert {r.name for r in root.sub_routers} == {"admin", "start", "errors"}
 
 
 def test_error_router_is_last(dispatcher):

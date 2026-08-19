@@ -19,6 +19,16 @@ class UserFacingError(PowerBankError):
         self.user_message = message
 
 
+class PermissionDenied(UserFacingError):
+    """The actor lacks the authority for what they attempted."""
+
+
+class AccessDenied(PowerBankError):
+    """The sender is not a member of the bot at all."""
+
+    user_message = "This bot is invite-only."
+
+
 class InsufficientFunds(PowerBankError):
     user_message = "You don't have enough coins for that."
 

@@ -19,9 +19,13 @@ class Settings(BaseSettings):
 
     # --- Telegram ---
     bot_token: SecretStr = Field(alias="BOT_TOKEN")
+    # Seeded as SUPER_ADMIN at every startup. This is the only way a super
+    # admin is ever created -- the bot itself cannot mint one.
     # NoDecode: pydantic-settings would otherwise try to JSON-decode this at the
     # source level and fail on a plain comma-separated string. Our validator parses it.
-    admin_ids: Annotated[list[int], NoDecode] = Field(default_factory=list, alias="ADMIN_IDS")
+    super_admin_ids: Annotated[list[int], NoDecode] = Field(
+        default_factory=list, alias="SUPER_ADMIN_IDS"
+    )
 
     # --- Database ---
     # Local dev defaults to SQLite; production sets a postgresql+asyncpg:// URL.
@@ -38,10 +42,10 @@ class Settings(BaseSettings):
     # --- Assets ---
     assets_dir: Path = Field(default=PROJECT_ROOT / "assets", alias="ASSETS_DIR")
 
-    @field_validator("admin_ids", mode="before")
+    @field_validator("super_admin_ids", mode="before")
     @classmethod
     def _split_admin_ids(cls, v: object) -> object:
-        """Accept ADMIN_IDS as a comma-separated string: "123,456" (or empty)."""
+        """Accept SUPER_ADMIN_IDS as a comma-separated string: "123,456" (or empty)."""
         if isinstance(v, str):
             return [int(part) for part in v.split(",") if part.strip()]
         return v

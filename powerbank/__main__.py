@@ -8,7 +8,8 @@ from aiogram import Bot, Dispatcher
 from powerbank.bot.factory import create_bot, create_dispatcher
 from powerbank.core.config import get_settings
 from powerbank.core.logging import setup_logging
-from powerbank.db.session import create_engine, create_session_factory
+from powerbank.db.session import create_engine, create_session_factory, session_scope
+from powerbank.services.access import sync_super_admins
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,16 @@ async def _run() -> None:
 
     bot: Bot = create_bot(settings)
     dp: Dispatcher = create_dispatcher(settings, session_factory)
+
+    async with session_scope(session_factory) as session:
+        seeded = await sync_super_admins(session, settings.super_admin_ids)
+    if seeded:
+        log.info("Seeded super admins: %s", [u.telegram_id for u in seeded])
+    elif not settings.super_admin_ids:
+        log.warning(
+            "SUPER_ADMIN_IDS is empty -- nobody can administer this bot. "
+            "Set it in .env and restart."
+        )
 
     try:
         me = await bot.get_me()
