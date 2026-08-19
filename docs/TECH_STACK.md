@@ -45,6 +45,39 @@ factor into the decision.
 - `Node + grammY + sharp` — see "Why Python" above.
 - `Django` — too heavy; we need no admin site or HTTP layer yet.
 
+### Why not MongoDB (checked 2026-08-19)
+
+The target VPS already runs MongoDB, so reusing it was the obvious way to avoid a
+second database. We checked whether it could carry the money side:
+
+```
+mongosh --quiet --eval "try { rs.status().ok } catch(e) { print('standalone') }"
+→ standalone
+```
+
+MongoDB only supports multi-document ACID transactions on a **replica set**. A
+standalone `mongod` has none. Every transfer touches two accounts plus a ledger
+row, so transactions are non-negotiable.
+
+Converting it to a single-node replica set would work and takes ~10 minutes. But
+that is the *immediate* blocker, not the main argument — even a clean Mongo replica
+set would leave the point below unaddressed.
+
+The deciding factor: money invariants are enforced by Postgres itself, versus code
+we write and maintain by hand in Mongo. Specifically, Postgres gives us
+the invariants we would otherwise hand-roll:
+
+- `CHECK (balance >= 0)` — the DB refuses to overdraw regardless of Python bugs
+- foreign keys — no ledger rows pointing at accounts that do not exist
+- `SUM(amount)` reconciliation of cached balances against the ledger, in one query
+- Alembic — versioned, reviewable schema changes
+
+Cost is roughly 50MB idle RAM on a 4GB VPS. Acceptable.
+
+**Rejected:** splitting storage (Mongo for game data, Postgres for money). Two
+backup stories, two pools, and no transaction can span both. Not worth it at this
+size.
+
 ---
 
 ## Architectural rules (decided up front)
