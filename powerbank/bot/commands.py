@@ -17,17 +17,17 @@ from powerbank.services.users import list_by_roles
 log = logging.getLogger(__name__)
 
 MEMBER_COMMANDS = [
-    BotCommand(command="start", description="Main menu"),
-    BotCommand(command="help", description="Show help"),
+    BotCommand(command="start", description="القائمة الرئيسية"),
+    BotCommand(command="help", description="عرض المساعدة"),
 ]
 
 STAFF_COMMANDS = [
     *MEMBER_COMMANDS,
-    BotCommand(command="members", description="List everyone with access"),
-    BotCommand(command="add", description="Grant access to someone"),
-    BotCommand(command="remove", description="Revoke someone's access"),
-    BotCommand(command="who", description="Look someone up"),
-    BotCommand(command="attempts", description="Who tried to get in"),
+    BotCommand(command="members", description="عرض كل من لديه صلاحية"),
+    BotCommand(command="add", description="منح صلاحية لشخص"),
+    BotCommand(command="remove", description="سحب صلاحية شخص"),
+    BotCommand(command="who", description="البحث عن شخص"),
+    BotCommand(command="attempts", description="من حاول الدخول"),
 ]
 
 

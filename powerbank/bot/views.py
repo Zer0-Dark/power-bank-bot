@@ -1,39 +1,47 @@
-"""Screen text.
+"""Screen text. Arabic (RTL).
 
 Commands and buttons render through the same functions, so the two entry points
 cannot drift apart as features are added.
+
+Every Latin run -- @usernames, IDs, command names, the brand -- goes through
+`ltr()` or `code()`. Bare Latin inside an Arabic paragraph reorders visually on
+the client; see `core/text.py`.
 """
 
 from aiogram.utils.markdown import hbold
 
 from powerbank.core.roles import Role
+from powerbank.core.text import cmd, code, ltr
 from powerbank.db.models import User
 
-MEMBER_HELP = f"""{hbold("Power Bank — Help")}
+BRAND = ltr("Power Bank")
 
-Use the buttons below, or these commands:
+MEMBER_HELP = f"""{hbold(BRAND)} — المساعدة
 
-/start — main menu
-/help — this screen"""
+استخدم الأزرار بالأسفل، أو هذه الأوامر:
+
+{cmd("start")} — القائمة الرئيسية
+{cmd("help")} — هذه الشاشة"""
 
 STAFF_HELP = f"""
 
-{hbold("Admin")}
-/add &lt;id|@user&gt; [user|admin] — grant access
-/remove &lt;id|@user&gt; — revoke access
-/members — everyone with access
-/who &lt;id|@user&gt; — look someone up
-/attempts — who tried to get in
+{hbold("أوامر الإدارة")}
+{cmd("add")} — منح صلاحية لشخص
+{cmd("remove")} — سحب صلاحية شخص
+{cmd("members")} — عرض كل من لديه صلاحية
+{cmd("who")} — البحث عن شخص
+{cmd("attempts")} — من حاول الدخول
 
-Every command above also has a button in the admin panel."""
+كل أمر بالأعلى له زر في لوحة الإدارة.
+يمكنك أيضاً كتابة الأمر مع المعرّف مباشرة، مثل {ltr("/add 12345 admin")}."""
 
 
 def welcome(user: User) -> str:
-    name = user.first_name or "there"
+    name = ltr(user.first_name) if user.first_name else "بك"
     return (
-        f"Welcome to {hbold('Power Bank')}, {name}!\n"
-        f"Signed in as {hbold(user.role.label)}.\n\n"
-        "Pick an option below."
+        f"أهلاً {name} في {hbold(BRAND)}!\n"
+        f"أنت مسجّل بصفة {hbold(user.role.label)}.\n\n"
+        "اختر من الأزرار بالأسفل."
     )
 
 
@@ -42,12 +50,12 @@ def help_text(role: Role) -> str:
 
 
 def admin_panel() -> str:
-    return f"{hbold('Admin panel')}\n\nManage who can use the bot."
+    return f"{hbold('لوحة الإدارة')}\n\nتحكّم بمن يستطيع استخدام البوت."
 
 
 def members_list(members: list[User]) -> str:
     if not members:
-        return "No members yet."
+        return "لا يوجد أعضاء بعد."
 
     lines: list[str] = []
     current: Role | None = None
@@ -55,56 +63,74 @@ def members_list(members: list[User]) -> str:
         if member.role is not current:
             current = member.role
             lines.append(f"\n{hbold(current.label)}")
-        lines.append(f"• {member.display} — <code>{member.telegram_id}</code>")
+        lines.append(f"• {ltr(member.display)} — {code(member.telegram_id)}")
 
-    return f"{hbold('Members')} ({len(members)})\n" + "\n".join(lines)
+    return f"{hbold('الأعضاء')} ({ltr(len(members))})\n" + "\n".join(lines)
 
 
 def attempts_list(knocking: list[User]) -> str:
     if not knocking:
-        return "No access attempts recorded."
+        return "لا توجد محاولات دخول مسجّلة."
 
     lines = [
-        f"• {u.display} — <code>{u.telegram_id}</code> "
-        f"({u.denied_attempts} tries, last {u.last_denied_at:%m-%d %H:%M})"
+        f"• {ltr(u.display)} — {code(u.telegram_id)} "
+        f"({ltr(u.denied_attempts)} محاولة، آخرها {ltr(f'{u.last_denied_at:%m-%d %H:%M}')})"
         for u in knocking
     ]
-    return f"{hbold('Recent access attempts')}\n" + "\n".join(lines)
+    return f"{hbold('آخر محاولات الدخول')}\n" + "\n".join(lines)
 
 
 def profile(found: User) -> str:
     lines = [
-        hbold(found.display),
-        f"ID: <code>{found.telegram_id}</code>",
-        f"Role: {found.role.label}",
+        hbold(ltr(found.display)),
+        f"المعرّف: {code(found.telegram_id)}",
+        f"الصلاحية: {found.role.label}",
     ]
     if found.first_name:
-        lines.append(f"Name: {found.first_name}")
+        lines.append(f"الاسم: {ltr(found.first_name)}")
     if found.last_seen_at:
-        lines.append(f"Last seen: {found.last_seen_at:%Y-%m-%d %H:%M}")
+        lines.append(f"آخر ظهور: {ltr(f'{found.last_seen_at:%Y-%m-%d %H:%M}')}")
     if found.denied_attempts:
-        lines.append(f"Denied attempts: {found.denied_attempts}")
+        lines.append(f"محاولات مرفوضة: {ltr(found.denied_attempts)}")
     if found.is_banned:
-        lines.append("⚠️ Banned")
+        lines.append("⚠️ محظور")
     return "\n".join(lines)
 
 
 def granted(user: User, role: Role, *, is_new: bool) -> str:
-    verb = "Added" if is_new else "Updated"
+    verb = "تمت إضافة" if is_new else "تم تحديث"
     return (
-        f"✅ {verb} {hbold(user.display)} as {hbold(role.label)}\n<code>{user.telegram_id}</code>"
+        f"✅ {verb} {hbold(ltr(user.display))} بصفة {hbold(role.label)}\n{code(user.telegram_id)}"
     )
 
 
 def removed(user: User) -> str:
-    return f"🗑 Removed {hbold(user.display)}\n<code>{user.telegram_id}</code>"
+    return f"🗑 تمت إزالة {hbold(ltr(user.display))}\n{code(user.telegram_id)}"
 
+
+def confirm_removal(user: User) -> str:
+    return f"هل تريد إزالة {hbold(ltr(user.display))} ({code(user.telegram_id)})؟"
+
+
+def unknown_username(query: str) -> str:
+    return (
+        f"لم يسبق أن راسلني {ltr(query)}.\n\n"
+        "اطلب منه إرسال رسالة واحدة للبوت ثم أعد المحاولة، "
+        "أو استخدم معرّفه الرقمي."
+    )
+
+
+# --- fixed strings ---
 
 ASK_TARGET_ADD = (
-    "Who should I add?\n\n"
-    "Send their <b>numeric ID</b>, or <b>@username</b> if they have messaged me before."
+    "من تريد إضافته؟\n\n"
+    "أرسل <b>المعرّف الرقمي</b>، أو <b>@اسم المستخدم</b> إن كان قد راسل البوت من قبل."
 )
-ASK_TARGET_REMOVE = "Who should I remove?\n\nSend their numeric ID or @username."
-ASK_TARGET_WHO = "Who do you want to look up?\n\nSend a numeric ID or @username."
-ASK_ROLE = "What role should they get?"
-CANCELLED = "Cancelled."
+ASK_TARGET_REMOVE = "من تريد إزالته؟\n\nأرسل المعرّف الرقمي أو @اسم المستخدم."
+ASK_TARGET_WHO = "عن من تبحث؟\n\nأرسل المعرّف الرقمي أو @اسم المستخدم."
+ASK_ROLE = "ما الصلاحية التي تريد منحها؟"
+CANCELLED = "تم الإلغاء."
+NOT_FOUND = "لا يوجد سجل لهذا الشخص."
+NOT_A_MEMBER = "هذا الشخص ليس عضواً."
+BAD_ROLE = f"الصلاحية يجب أن تكون {ltr('user')} أو {ltr('admin')}."
+BALANCE_SOON = "💰 الحسابات لم تُفتح بعد.\n\nقريباً في التحديث القادم."

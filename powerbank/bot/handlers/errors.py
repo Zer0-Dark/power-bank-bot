@@ -46,5 +46,5 @@ async def on_error(event: ErrorEvent) -> bool:
 
     log.exception("Unhandled error while processing update", exc_info=exception)
     if target is not None:
-        await _tell(target, "Something went wrong on our side. Please try again.")
+        await _tell(target, "حدث خطأ من جهتنا. الرجاء المحاولة مرة أخرى.")
     return True

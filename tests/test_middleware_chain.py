@@ -112,7 +112,7 @@ async def test_unknown_sender_is_recorded_but_denied(factory):
         assert user.denied_attempts == 1
 
     assert len(replies) == 1
-    assert "invite-only" in replies[0]
+    assert "بالدعوة فقط" in replies[0]
     assert "555" in replies[0], "the denial must show their id so they can share it"
 
 
@@ -140,7 +140,7 @@ async def test_banned_member_is_denied(factory):
     seen = await run_chain(factory, {"event_from_user": TG_USER}, replies=replies)
 
     assert seen == {}
-    assert "revoked" in replies[0]
+    assert "تم سحب صلاحيتك" in replies[0]
 
 
 async def test_revoked_member_loses_access_immediately(factory):
@@ -222,7 +222,7 @@ async def test_non_member_pressing_a_button_is_denied(factory):
 
     assert seen == {}, "a stale button must not bypass the gate"
     assert toasts, "an unanswered callback leaves the client spinning forever"
-    assert "invite-only" in toasts[0]
+    assert "بالدعوة فقط" in toasts[0]
 
 
 async def test_button_denial_is_never_throttled(factory):

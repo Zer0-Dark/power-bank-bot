@@ -39,11 +39,7 @@ async def open_help(query: CallbackQuery, user: User) -> None:
 @router.callback_query(NavCb.filter(F.to == Nav.BALANCE))
 async def open_balance(query: CallbackQuery, user: User) -> None:
     # Placeholder until the ledger lands in Phase 2.
-    await show(
-        query,
-        "💰 Accounts are not open yet.\n\nComing in the next update.",
-        menu.back_to(Nav.MAIN),
-    )
+    await show(query, views.BALANCE_SOON, menu.back_to(Nav.MAIN))
 
 
 @router.callback_query(NavCb.filter(F.to == Nav.CANCEL))

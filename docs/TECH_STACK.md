@@ -166,7 +166,42 @@ and "edit the one on screen" (button).
   published only to the chats of people holding the role, and re-synced the
   moment a role changes rather than at the next restart.
 
-### 7. Telegram file_id reuse
+### 7. Arabic only, with bidi isolation
+
+The UI is Arabic. There is no translation layer: text lives behind
+`bot/views.py`, so adding a second language later is a mechanical change to one
+module rather than a hunt through handlers. Building i18n machinery to serve one
+language would be maintenance for a hypothetical.
+
+**The real hazard is bidi mixing, not translation.** Arabic screens are full of
+Latin runs -- @usernames, numeric IDs, command names, the brand. Left bare, the
+Unicode bidi algorithm reorders the punctuation and digits around them, so
+`(436677576)` renders with the parenthesis on the wrong side. It looks broken
+only on a real client, never in a terminal, which makes it expensive to catch
+late.
+
+So every Latin run goes through `core/text.py`:
+
+- `ltr(x)` — wrap in FSI/PDI so the run's direction resolves independently
+- `code(x)` — a monospace span with the isolates *outside* the tag
+- `cmd(name)` — isolates only the command token
+
+**Never isolate a mixed run.** FSI infers direction from the first strong
+character, so wrapping Arabic+Latin together forces the whole span LTR and
+reorders the Arabic inside it. Anything but a pure Latin/numeric run stays
+outside the isolate.
+
+Tests enforce this: isolates are balanced on every screen, IDs and handles are
+actually isolated, and no isolate contains Arabic.
+
+Ruff's RUF001/2/3 (ambiguous unicode) are disabled project-wide -- they assume
+an ASCII codebase and fire on correct Arabic.
+
+**Rendered images are a separate problem.** Pillow does not shape Arabic;
+letters come out disconnected and reversed. That needs `arabic-reshaper` +
+`python-bidi` at the render layer, unrelated to message text.
+
+### 8. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
 unchanged image (e.g. a static coin graphic) should never re-render or re-upload.
 
@@ -193,6 +228,7 @@ power-bank-bot/
 │   │   ├── config.py         # pydantic-settings, cached get_settings()
 │   │   ├── logging.py
 │   │   ├── roles.py          # Role enum + permission predicates (no I/O)
+│   │   ├── text.py           # bidi isolation helpers (ltr/code/cmd)
 │   │   └── exceptions.py     # PowerBankError + user-safe messages
 │   ├── db/
 │   │   ├── base.py           # DeclarativeBase, naming convention, mixins
@@ -248,8 +284,9 @@ exception. Registration order is significant: user lookup needs the session.
    super admins, admin commands, access gate, attempt tracking.
 3. **Phase 1c (done)** — interactive UI: inline-button menus, guided FSM flows,
    role-scoped native command menu, shared view layer.
-4. **Phase 1d (next)** — render pipeline. `/card` replies with a pre-designed
+4. **Phase 1d (done)** — Arabic UI throughout, with bidi isolation for Latin runs.
+5. **Phase 1e (next)** — render pipeline. `/card` replies with a pre-designed
    image with data drawn onto it.
-5. **Phase 2** — accounts, ledger, transfers, transaction history.
-6. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
-7. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.
+6. **Phase 2** — accounts, ledger, transfers, transaction history.
+7. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
+8. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.

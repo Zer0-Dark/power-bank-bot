@@ -8,7 +8,7 @@ layer. Services never format Telegram replies themselves.
 class PowerBankError(Exception):
     """Base for every error this application raises deliberately."""
 
-    user_message = "Something went wrong. Please try again."
+    user_message = "حدث خطأ. الرجاء المحاولة مرة أخرى."
 
 
 class UserFacingError(PowerBankError):
@@ -26,12 +26,12 @@ class PermissionDenied(UserFacingError):
 class AccessDenied(PowerBankError):
     """The sender is not a member of the bot at all."""
 
-    user_message = "This bot is invite-only."
+    user_message = "هذا البوت بالدعوة فقط."
 
 
 class InsufficientFunds(PowerBankError):
-    user_message = "You don't have enough coins for that."
+    user_message = "لا تملك عملات كافية لهذه العملية."
 
 
 class AccountNotFound(PowerBankError):
-    user_message = "That account doesn't exist."
+    user_message = "هذا الحساب غير موجود."

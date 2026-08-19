@@ -4,7 +4,7 @@ A Telegram bot for a virtual bank game — accounts, balances, transfers, and
 rendered card/receipt images.
 
 - **Stack & architectural decisions:** [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status:** Phase 1c done — invite-only access with roles, menu-driven UI. Render pipeline is next.
+- **Status:** Phase 1d done — Arabic UI, invite-only access with roles, menu-driven. Render pipeline is next.
 
 ## Setup
 
@@ -14,6 +14,15 @@ cp .env.example .env        # set BOT_TOKEN and SUPER_ADMIN_IDS
 make migrate                # create the schema (SQLite by default)
 make run                    # start polling
 ```
+
+## Language
+
+The UI is Arabic. All text lives in `powerbank/bot/views.py` and
+`powerbank/bot/keyboards/menu.py` — nothing user-facing is inlined in handlers.
+
+Latin runs (@usernames, IDs, commands) **must** be wrapped with `ltr()` or
+`code()` from `powerbank/core/text.py`. Bare Latin inside an Arabic paragraph
+reorders visually on the client; tests in `tests/test_views.py` enforce this.
 
 ## Access
 

@@ -62,10 +62,7 @@ async def _resolve_target(session: AsyncSession, query: str) -> int:
 
     found = await users.get_by_username(session, text)
     if found is None:
-        raise UserFacingError(
-            f"I have never seen {text}. Ask them to message me once, "
-            "then try again — or use their numeric ID."
-        )
+        raise UserFacingError(views.unknown_username(text))
     return found.telegram_id
 
 
@@ -151,10 +148,10 @@ async def remove_got_target(message: Message, state: FSMContext, session: AsyncS
 
     found = await users.get_by_telegram_id(session, telegram_id)
     if found is None or not found.role.is_member:
-        raise UserFacingError("That person is not a member.")
+        raise UserFacingError(views.NOT_A_MEMBER)
 
     await message.answer(
-        f"Remove {found.display} (<code>{telegram_id}</code>)?",
+        views.confirm_removal(found),
         reply_markup=menu.confirm_removal(telegram_id),
     )
 
@@ -192,7 +189,7 @@ async def who_got_target(message: Message, state: FSMContext, session: AsyncSess
     await state.clear()
     found = await users.resolve(session, message.text or "")
     if found is None:
-        await message.answer("No record of that person.", reply_markup=menu.back_to(Nav.ADMIN))
+        await message.answer(views.NOT_FOUND, reply_markup=menu.back_to(Nav.ADMIN))
         return
     await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))
 
@@ -217,7 +214,7 @@ async def cmd_add(
 
     role = ROLE_WORDS.get(args[1].lower()) if len(args) > 1 else Role.USER
     if role is None:
-        await message.answer("Role must be <code>user</code> or <code>admin</code>.")
+        await message.answer(views.BAD_ROLE)
         return
 
     telegram_id = await _resolve_target(session, args[0])
@@ -271,6 +268,6 @@ async def cmd_who(
 
     found = await users.resolve(session, command.args)
     if found is None:
-        await message.answer("No record of that person.")
+        await message.answer(views.NOT_FOUND)
         return
     await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))

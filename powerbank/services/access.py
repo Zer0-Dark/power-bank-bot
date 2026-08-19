@@ -52,7 +52,7 @@ async def grant_role(
         await session.flush()
 
     if target.id == actor.id:
-        raise PermissionDenied("You cannot change your own role.")
+        raise PermissionDenied("لا يمكنك تغيير صلاحيتك بنفسك.")
 
     # Changing an existing member's role is a revoke-and-regrant in disguise:
     # demoting an admin needs the same authority as removing one.
@@ -78,12 +78,12 @@ async def revoke_access(session: AsyncSession, actor: User, telegram_id: int) ->
     """Strip a person's access entirely, returning them to Role.NONE."""
     target = await get_by_telegram_id(session, telegram_id)
     if target is None or not target.role.is_member:
-        raise PermissionDenied("That person is not a member.")
+        raise PermissionDenied("هذا الشخص ليس عضواً.")
 
     if not can_revoke(actor.role, target.role, same_person=target.id == actor.id):
         if target.id == actor.id:
-            raise PermissionDenied("You cannot remove your own access.")
-        raise PermissionDenied(f"You cannot remove a {target.role.label}.")
+            raise PermissionDenied("لا يمكنك سحب صلاحيتك بنفسك.")
+        raise PermissionDenied(f"لا يمكنك إزالة {target.role.label}.")
 
     target.role = Role.NONE
     target.granted_by_id = actor.id

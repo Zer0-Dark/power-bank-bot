@@ -26,13 +26,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-
-[tool.ruff.lint.per-file-ignores]
-# UI text: button labels and replies legitimately use symbol emoji that
-# RUF001 flags as "ambiguous unicode".
-"powerbank/bot/keyboards/*" = ["RUF001"]
-"powerbank/bot/handlers/*" = ["RUF001"]
-"powerbank/bot/middlewares/access.py" = ["RUF001"]
+# RUF001/2/3 flag non-ASCII "look-alike" characters. The UI is Arabic and the
+# button labels use symbol emoji, so these fire on correct, intentional text.
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

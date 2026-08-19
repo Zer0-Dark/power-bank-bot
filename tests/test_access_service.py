@@ -55,7 +55,7 @@ async def test_nobody_can_grant_super_admin(session):
 
 async def test_cannot_change_own_role(session):
     admin = await make(session, 1, Role.ADMIN)
-    with pytest.raises(PermissionDenied, match="own role"):
+    with pytest.raises(PermissionDenied, match="صلاحيتك بنفسك"):
         await access.grant_role(session, admin, 1, Role.USER)
 
 
@@ -84,7 +84,7 @@ async def test_admin_removes_another_admin(session):
 
 async def test_admin_cannot_remove_themselves(session):
     admin = await make(session, 1, Role.ADMIN)
-    with pytest.raises(PermissionDenied, match="your own access"):
+    with pytest.raises(PermissionDenied, match="سحب صلاحيتك"):
         await access.revoke_access(session, admin, 1)
 
 
@@ -105,7 +105,7 @@ async def test_user_cannot_remove_anyone(session):
 async def test_removing_a_non_member_is_rejected(session):
     admin = await make(session, 1, Role.ADMIN)
     await make(session, 2, Role.NONE)
-    with pytest.raises(PermissionDenied, match="not a member"):
+    with pytest.raises(PermissionDenied, match="ليس عضواً"):
         await access.revoke_access(session, admin, 2)
 
 

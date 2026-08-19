@@ -18,11 +18,11 @@ from powerbank.services.users import record_denied_attempt
 log = logging.getLogger(__name__)
 
 DENIED_TEXT = (
-    "🔒 <b>Power Bank</b> is invite-only.\n\n"
-    "Ask an admin to add you. Give them your ID:\n<code>{telegram_id}</code>"
+    "🔒 <b>⁨Power Bank⁩</b> بالدعوة فقط.\n\n"
+    "اطلب من أحد المشرفين إضافتك، وأعطه معرّفك:\n⁨<code>{telegram_id}</code>⁩"
 )
 
-BANNED_TEXT = "🚫 Your access to Power Bank has been revoked."
+BANNED_TEXT = "🚫 تم سحب صلاحيتك من ⁨Power Bank⁩."
 
 # A non-member who keeps messaging gets one reply per window, not one per
 # message -- otherwise the bot happily amplifies anyone spamming it.

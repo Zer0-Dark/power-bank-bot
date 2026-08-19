@@ -43,11 +43,13 @@ _RANKS: dict[Role, int] = {
     Role.SUPER_ADMIN: 3,
 }
 
+# Displayed to users, so Arabic. The enum *values* stay ASCII: they are stored
+# in the database and travel in callback payloads.
 _LABELS: dict[Role, str] = {
-    Role.NONE: "no access",
-    Role.USER: "User",
-    Role.ADMIN: "Admin",
-    Role.SUPER_ADMIN: "Super Admin",
+    Role.NONE: "بدون صلاحية",
+    Role.USER: "عضو",
+    Role.ADMIN: "مشرف",
+    Role.SUPER_ADMIN: "مشرف عام",
 }
 
 # Roles that can be handed out through the bot, by actor role.
