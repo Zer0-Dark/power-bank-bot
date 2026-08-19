@@ -143,7 +143,30 @@ Handlers therefore never check access themselves. Admin handlers are filtered by
 `IsStaff` *and* re-checked in the service layer, so a filter mistake alone
 cannot escalate rights.
 
-### 6. Telegram file_id reuse
+### 6. One screen, two entry points
+
+Every feature is reachable by button *and* by command. Both render through
+`bot/views.py`, so the two cannot drift apart as features are added, and
+`bot/screens.py` hides the difference between "send a new message" (command)
+and "edit the one on screen" (button).
+
+- **Callback payloads are typed** (`bot/callbacks.py`). They come from the
+  client and are capped at 64 bytes, so they are parsed into models rather than
+  split by hand -- a malformed payload fails the filter instead of reaching a
+  handler. Destructive actions carry their target *in the payload*, so a stale
+  button cannot act on a newer target.
+- **Callback queries are gated too.** `router.callback_query.filter(IsStaff)`
+  sits alongside the message filter; a button is as much an entry point as a
+  command. Non-members get an answered toast rather than silence, which would
+  hang their client.
+- **Router order is load-bearing.** `menu` is registered before `admin` because
+  admin flows wait on free text, and a state handler would otherwise swallow
+  /start and strand the user mid-flow. Asserted in tests.
+- **The native "/" menu is role-scoped** (`bot/commands.py`): admin commands are
+  published only to the chats of people holding the role, and re-synced the
+  moment a role changes rather than at the next restart.
+
+### 7. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
 unchanged image (e.g. a static coin graphic) should never re-render or re-upload.
 
@@ -183,16 +206,21 @@ power-bank-bot/
 │   └── bot/
 │       ├── factory.py        # the single wiring point
 │       ├── filters.py        # HasRole / IsStaff / IsSuperAdmin
+│       ├── callbacks.py      # typed callback payloads
+│       ├── views.py          # screen text, shared by buttons and commands
+│       ├── screens.py        # send-vs-edit, so handlers need not care
+│       ├── commands.py       # role-scoped native "/" menu
 │       ├── handlers/         # one router per feature area
 │       │   ├── __init__.py   # build_router(), registration order
-│       │   ├── admin.py      # /add /remove /members /who /attempts
-│       │   ├── start.py
+│       │   ├── menu.py       # /start /help + navigation
+│       │   ├── admin.py      # add/remove/members/who/attempts + FSM flows
 │       │   └── errors.py
 │       ├── middlewares/
 │       │   ├── database.py   # session per update, commit/rollback
 │       │   ├── user.py       # resolves + logs sender (grants nothing)
 │       │   └── access.py     # the gate: non-members stop here
 │       └── keyboards/
+│           └── menu.py       # inline keyboards, role-aware
 ├── assets/{templates,layouts,fonts}/
 ├── migrations/               # alembic
 ├── tests/
@@ -218,8 +246,10 @@ exception. Registration order is significant: user lookup needs the session.
    service, middleware chain, `/start`, error handling, Alembic, Docker, tests.
 2. **Phase 1b (done)** — roles and invite-only access: three ranks, env-seeded
    super admins, admin commands, access gate, attempt tracking.
-3. **Phase 1c (next)** — render pipeline. `/card` replies with a pre-designed
+3. **Phase 1c (done)** — interactive UI: inline-button menus, guided FSM flows,
+   role-scoped native command menu, shared view layer.
+4. **Phase 1d (next)** — render pipeline. `/card` replies with a pre-designed
    image with data drawn onto it.
-4. **Phase 2** — accounts, ledger, transfers, transaction history.
-5. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
-6. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.
+5. **Phase 2** — accounts, ledger, transfers, transaction history.
+6. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
+7. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.

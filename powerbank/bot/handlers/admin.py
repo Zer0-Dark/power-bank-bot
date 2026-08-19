@@ -1,16 +1,26 @@
-"""Membership management commands. Staff only.
+"""Membership management, by command or by button.
 
-Every handler here is gated by the IsStaff filter; the service layer
-independently re-checks authority, so a filter mistake cannot escalate rights.
+Both entry points converge on the same service calls and the same view text.
+
+Every handler is gated by IsStaff -- on messages *and* callback queries, since
+a callback is just as much an entry point as a command. The service layer
+re-checks authority independently, so a filter mistake alone cannot escalate
+rights.
 """
 
-from aiogram import Router
-from aiogram.filters import Command, CommandObject
-from aiogram.types import Message
-from aiogram.utils.markdown import hbold
+from aiogram import F, Router
+from aiogram.filters import Command, CommandObject, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.bot import views
+from powerbank.bot.callbacks import ConfirmCb, Nav, NavCb, RoleCb
+from powerbank.bot.commands import sync_for_user
 from powerbank.bot.filters import IsStaff
+from powerbank.bot.keyboards import menu
+from powerbank.bot.screens import show
 from powerbank.core.exceptions import UserFacingError
 from powerbank.core.roles import Role
 from powerbank.db.models import User
@@ -18,13 +28,25 @@ from powerbank.services import access, users
 
 router = Router(name="admin")
 router.message.filter(IsStaff)
+router.callback_query.filter(IsStaff)
 
-ROLE_WORDS = {
-    "user": Role.USER,
-    "u": Role.USER,
-    "admin": Role.ADMIN,
-    "a": Role.ADMIN,
-}
+ROLE_WORDS = {"user": Role.USER, "u": Role.USER, "admin": Role.ADMIN, "a": Role.ADMIN}
+
+# Typed input never begins with a slash -- that is a command escaping the flow.
+NotACommand = ~F.text.startswith("/")
+
+
+class AddMember(StatesGroup):
+    target = State()
+    role = State()
+
+
+class RemoveMember(StatesGroup):
+    target = State()
+
+
+class Lookup(StatesGroup):
+    target = State()
 
 
 async def _resolve_target(session: AsyncSession, query: str) -> int:
@@ -47,17 +69,150 @@ async def _resolve_target(session: AsyncSession, query: str) -> int:
     return found.telegram_id
 
 
+# --------------------------------------------------------------------------
+# Panel
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.ADMIN))
+async def open_panel(query: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await show(query, views.admin_panel(), menu.admin_menu())
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.MEMBERS))
+async def open_members(query: CallbackQuery, session: AsyncSession) -> None:
+    members = await users.list_by_roles(session, (Role.SUPER_ADMIN, Role.ADMIN, Role.USER))
+    await show(query, views.members_list(members), menu.back_to(Nav.ADMIN))
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.ATTEMPTS))
+async def open_attempts(query: CallbackQuery, session: AsyncSession) -> None:
+    knocking = await users.list_recent_denied(session)
+    await show(query, views.attempts_list(knocking), menu.back_to(Nav.ADMIN))
+
+
+# --------------------------------------------------------------------------
+# Add flow
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.ADD))
+async def add_start(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(AddMember.target)
+    await show(query, views.ASK_TARGET_ADD, menu.cancel_only())
+
+
+@router.message(StateFilter(AddMember.target), NotACommand)
+async def add_got_target(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    telegram_id = await _resolve_target(session, message.text or "")
+    await state.update_data(telegram_id=telegram_id)
+    await state.set_state(AddMember.role)
+    await message.answer(views.ASK_ROLE, reply_markup=menu.role_choice())
+
+
+@router.callback_query(StateFilter(AddMember.role), RoleCb.filter())
+async def add_got_role(
+    query: CallbackQuery,
+    callback_data: RoleCb,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User,
+) -> None:
+    data = await state.get_data()
+    await state.clear()
+
+    result = await access.grant_role(session, user, data["telegram_id"], callback_data.role)
+    # Their "/" menu must reflect the new role without waiting for a restart.
+    await sync_for_user(query.bot, result.user.telegram_id, callback_data.role)
+
+    await show(
+        query,
+        views.granted(result.user, callback_data.role, is_new=result.is_new_member),
+        menu.back_to(Nav.ADMIN),
+    )
+
+
+# --------------------------------------------------------------------------
+# Remove flow
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.REMOVE))
+async def remove_start(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(RemoveMember.target)
+    await show(query, views.ASK_TARGET_REMOVE, menu.cancel_only())
+
+
+@router.message(StateFilter(RemoveMember.target), NotACommand)
+async def remove_got_target(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    await state.clear()
+    telegram_id = await _resolve_target(session, message.text or "")
+
+    found = await users.get_by_telegram_id(session, telegram_id)
+    if found is None or not found.role.is_member:
+        raise UserFacingError("That person is not a member.")
+
+    await message.answer(
+        f"Remove {found.display} (<code>{telegram_id}</code>)?",
+        reply_markup=menu.confirm_removal(telegram_id),
+    )
+
+
+@router.callback_query(ConfirmCb.filter())
+async def remove_confirmed(
+    query: CallbackQuery,
+    callback_data: ConfirmCb,
+    session: AsyncSession,
+    user: User,
+) -> None:
+    if not callback_data.yes:
+        await show(query, views.CANCELLED, menu.back_to(Nav.ADMIN))
+        return
+
+    target = await access.revoke_access(session, user, callback_data.telegram_id)
+    await sync_for_user(query.bot, target.telegram_id, Role.NONE)
+
+    await show(query, views.removed(target), menu.back_to(Nav.ADMIN))
+
+
+# --------------------------------------------------------------------------
+# Lookup flow
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.WHO))
+async def who_start(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(Lookup.target)
+    await show(query, views.ASK_TARGET_WHO, menu.cancel_only())
+
+
+@router.message(StateFilter(Lookup.target), NotACommand)
+async def who_got_target(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    await state.clear()
+    found = await users.resolve(session, message.text or "")
+    if found is None:
+        await message.answer("No record of that person.", reply_markup=menu.back_to(Nav.ADMIN))
+        return
+    await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))
+
+
+# --------------------------------------------------------------------------
+# Commands (equivalent to the buttons above)
+# --------------------------------------------------------------------------
+
+
 @router.message(Command("add"))
 async def cmd_add(
-    message: Message, command: CommandObject, session: AsyncSession, user: User
+    message: Message, command: CommandObject, session: AsyncSession, user: User, state: FSMContext
 ) -> None:
     """/add <id|@username> [user|admin]"""
+    await state.clear()
     args = (command.args or "").split()
-    if not args:
-        await message.answer(
-            "Usage: <code>/add &lt;id|@username&gt; [user|admin]</code>\n"
-            "Role defaults to <b>user</b>."
-        )
+
+    if not args:  # no arguments -- fall into the guided flow
+        await state.set_state(AddMember.target)
+        await message.answer(views.ASK_TARGET_ADD, reply_markup=menu.cancel_only())
         return
 
     role = ROLE_WORDS.get(args[1].lower()) if len(args) > 1 else Role.USER
@@ -67,87 +222,55 @@ async def cmd_add(
 
     telegram_id = await _resolve_target(session, args[0])
     result = await access.grant_role(session, user, telegram_id, role)
+    await sync_for_user(message.bot, telegram_id, role)
 
-    verb = "Added" if result.is_new_member else "Updated"
     await message.answer(
-        f"✅ {verb} {hbold(result.user.display)} as {hbold(role.label)}\n<code>{telegram_id}</code>"
+        views.granted(result.user, role, is_new=result.is_new_member),
+        reply_markup=menu.back_to(Nav.ADMIN),
     )
 
 
 @router.message(Command("remove"))
 async def cmd_remove(
-    message: Message, command: CommandObject, session: AsyncSession, user: User
+    message: Message, command: CommandObject, session: AsyncSession, state: FSMContext
 ) -> None:
     """/remove <id|@username>"""
+    await state.clear()
     if not command.args:
-        await message.answer("Usage: <code>/remove &lt;id|@username&gt;</code>")
+        await state.set_state(RemoveMember.target)
+        await message.answer(views.ASK_TARGET_REMOVE, reply_markup=menu.cancel_only())
         return
 
-    telegram_id = await _resolve_target(session, command.args)
-    removed = await access.revoke_access(session, user, telegram_id)
-
-    await message.answer(f"🗑 Removed {hbold(removed.display)}\n<code>{removed.telegram_id}</code>")
+    await remove_got_target(message, state, session)
 
 
 @router.message(Command("members"))
-async def cmd_members(message: Message, session: AsyncSession) -> None:
-    """/members — everyone with access, grouped by role."""
+async def cmd_members(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    await state.clear()
     members = await users.list_by_roles(session, (Role.SUPER_ADMIN, Role.ADMIN, Role.USER))
-    if not members:
-        await message.answer("No members yet.")
-        return
+    await message.answer(views.members_list(members), reply_markup=menu.back_to(Nav.ADMIN))
 
-    lines: list[str] = []
-    current: Role | None = None
-    for member in members:
-        if member.role is not current:
-            current = member.role
-            lines.append(f"\n{hbold(current.label)}")
-        lines.append(f"• {member.display} — <code>{member.telegram_id}</code>")
 
-    await message.answer(f"{hbold('Members')} ({len(members)})\n" + "\n".join(lines))
+@router.message(Command("attempts"))
+async def cmd_attempts(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    await state.clear()
+    knocking = await users.list_recent_denied(session)
+    await message.answer(views.attempts_list(knocking), reply_markup=menu.back_to(Nav.ADMIN))
 
 
 @router.message(Command("who"))
-async def cmd_who(message: Message, command: CommandObject, session: AsyncSession) -> None:
-    """/who <id|@username> — look up anyone the bot has seen."""
+async def cmd_who(
+    message: Message, command: CommandObject, session: AsyncSession, state: FSMContext
+) -> None:
+    """/who <id|@username>"""
+    await state.clear()
     if not command.args:
-        await message.answer("Usage: <code>/who &lt;id|@username&gt;</code>")
+        await state.set_state(Lookup.target)
+        await message.answer(views.ASK_TARGET_WHO, reply_markup=menu.cancel_only())
         return
 
     found = await users.resolve(session, command.args)
     if found is None:
         await message.answer("No record of that person.")
         return
-
-    lines = [
-        f"{hbold(found.display)}",
-        f"ID: <code>{found.telegram_id}</code>",
-        f"Role: {found.role.label}",
-    ]
-    if found.first_name:
-        lines.append(f"Name: {found.first_name}")
-    if found.last_seen_at:
-        lines.append(f"Last seen: {found.last_seen_at:%Y-%m-%d %H:%M}")
-    if found.denied_attempts:
-        lines.append(f"Denied attempts: {found.denied_attempts}")
-    if found.is_banned:
-        lines.append("⚠️ Banned")
-
-    await message.answer("\n".join(lines))
-
-
-@router.message(Command("attempts"))
-async def cmd_attempts(message: Message, session: AsyncSession) -> None:
-    """/attempts — non-members who recently tried to get in."""
-    knocking = await users.list_recent_denied(session)
-    if not knocking:
-        await message.answer("No access attempts recorded.")
-        return
-
-    lines = [
-        f"• {u.display} — <code>{u.telegram_id}</code> "
-        f"({u.denied_attempts} tries, last {u.last_denied_at:%m-%d %H:%M})"
-        for u in knocking
-    ]
-    await message.answer(f"{hbold('Recent access attempts')}\n" + "\n".join(lines))
+    await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))

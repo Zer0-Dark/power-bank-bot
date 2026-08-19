@@ -5,6 +5,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 
+from powerbank.bot.commands import setup_commands
 from powerbank.bot.factory import create_bot, create_dispatcher
 from powerbank.core.config import get_settings
 from powerbank.core.logging import setup_logging
@@ -37,6 +38,9 @@ async def _run() -> None:
     try:
         me = await bot.get_me()
         log.info("Starting @%s (env=%s)", me.username, settings.environment)
+
+        async with session_scope(session_factory) as session:
+            await setup_commands(bot, session)
 
         # Drop updates that queued while we were down; on restart they are
         # almost always stale and replaying them confuses users.

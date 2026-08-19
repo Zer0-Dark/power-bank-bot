@@ -6,10 +6,11 @@ connection involved; replies are captured by a stub.
 """
 
 import pytest_asyncio
-from aiogram.types import Chat, Message, TelegramObject, Update
+from aiogram.types import CallbackQuery, Chat, Message, TelegramObject, Update
 from aiogram.types import User as TgUser
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from powerbank.bot.callbacks import Nav, NavCb
 from powerbank.bot.middlewares.access import AccessMiddleware
 from powerbank.bot.middlewares.database import DatabaseMiddleware
 from powerbank.bot.middlewares.user import UserMiddleware
@@ -165,3 +166,79 @@ async def test_update_without_sender_passes_through(factory):
 
     assert "session" in seen
     assert "user" not in seen
+
+
+# --- the gate covers buttons, not just commands ---
+
+
+def make_callback_update() -> Update:
+    """A button press from the same user."""
+    return Update(
+        update_id=2,
+        callback_query=CallbackQuery(
+            id="cb1",
+            from_user=TG_USER,
+            chat_instance="ci",
+            data=NavCb(to=Nav.ADMIN).pack(),
+            message=Message(
+                message_id=2,
+                date=1_700_000_000,
+                chat=Chat(id=555, type="private"),
+                from_user=TG_USER,
+                text="menu",
+            ),
+        ),
+    )
+
+
+async def run_callback_chain(factory, toasts: list[str]) -> dict:
+    seen: dict = {}
+
+    async def handler(event: TelegramObject, d: dict):
+        seen.update(d)
+        return None
+
+    async def access_layer(event: TelegramObject, d: dict):
+        return await AccessMiddleware()(handler, event, d)
+
+    async def user_layer(event: TelegramObject, d: dict):
+        return await UserMiddleware()(access_layer, event, d)
+
+    update = make_callback_update()
+
+    async def answer(text: str = "", **kw):
+        toasts.append(text)
+
+    object.__setattr__(update.callback_query, "answer", answer)
+
+    await DatabaseMiddleware(factory)(user_layer, update, {"event_from_user": TG_USER})
+    return seen
+
+
+async def test_non_member_pressing_a_button_is_denied(factory):
+    toasts: list[str] = []
+
+    seen = await run_callback_chain(factory, toasts)
+
+    assert seen == {}, "a stale button must not bypass the gate"
+    assert toasts, "an unanswered callback leaves the client spinning forever"
+    assert "invite-only" in toasts[0]
+
+
+async def test_button_denial_is_never_throttled(factory):
+    toasts: list[str] = []
+    for _ in range(3):
+        await run_callback_chain(factory, toasts)
+
+    # A toast is not a new message, so answering every time cannot spam anyone
+    # -- and staying silent would hang their client.
+    assert len(toasts) == 3
+
+
+async def test_member_pressing_a_button_reaches_the_handler(factory):
+    await run_callback_chain(factory, [])
+    await grant(factory, 555, Role.USER)
+
+    seen = await run_callback_chain(factory, [])
+
+    assert seen.get("user") is not None

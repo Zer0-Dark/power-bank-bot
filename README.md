@@ -4,7 +4,7 @@ A Telegram bot for a virtual bank game — accounts, balances, transfers, and
 rendered card/receipt images.
 
 - **Stack & architectural decisions:** [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status:** Phase 1b done — invite-only access with roles. Render pipeline is next.
+- **Status:** Phase 1c done — invite-only access with roles, menu-driven UI. Render pipeline is next.
 
 ## Setup
 
@@ -30,6 +30,10 @@ startup — the bot itself cannot create one, since nobody can remove one.
 
 Admin commands: `/add <id|@user> [user|admin]`, `/remove <id|@user>`,
 `/members`, `/who <id|@user>`, `/attempts`.
+
+Every one of those also has a button in the admin panel — `/start` opens the
+menu. Running a command with no arguments starts the same guided flow the
+button does, so `/add` and the ➕ button behave identically.
 
 Everyone who messages the bot is recorded even without access, so `/who` and
 `/add @username` work once the person has said hello — and `/attempts` shows who

@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject, Update
+from aiogram.types import CallbackQuery, Message, TelegramObject, Update
 
 from powerbank.db.models import User
 from powerbank.services.users import record_denied_attempt
@@ -54,10 +54,19 @@ class AccessMiddleware(BaseMiddleware):
             user.denied_attempts,
         )
 
+        text = (BANNED_TEXT if user.is_banned else DENIED_TEXT).format(telegram_id=user.telegram_id)
+
+        query = _extract_callback(event)
+        if query is not None:
+            # Always answer a callback, cooldown or not -- an unanswered one
+            # leaves the client spinning. A toast is not a new message, so it
+            # cannot be used to make the bot spam anyone.
+            await query.answer(text.replace("<b>", "").replace("</b>", ""), show_alert=True)
+            return None
+
         message = _extract_message(event)
         if message is not None and _should_reply(last_denied):
-            text = BANNED_TEXT if user.is_banned else DENIED_TEXT
-            await message.answer(text.format(telegram_id=user.telegram_id))
+            await message.answer(text)
 
         return None  # handler chain stops here
 
@@ -70,9 +79,17 @@ def _should_reply(last_denied_at: datetime | None) -> bool:
     return datetime.now(UTC) - last_denied_at > DENY_REPLY_COOLDOWN
 
 
+def _extract_callback(event: TelegramObject) -> CallbackQuery | None:
+    if isinstance(event, Update):
+        return event.callback_query
+    if isinstance(event, CallbackQuery):
+        return event
+    return None
+
+
 def _extract_message(event: TelegramObject) -> Message | None:
     if isinstance(event, Update):
-        return event.message or (event.callback_query.message if event.callback_query else None)
+        return event.message
     if isinstance(event, Message):
         return event
     return None

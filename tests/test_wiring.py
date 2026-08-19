@@ -47,12 +47,24 @@ def test_middlewares_registered_in_order(dispatcher):
 
 def test_feature_routers_are_attached(dispatcher):
     root = dispatcher.sub_routers[0]
-    assert {r.name for r in root.sub_routers} == {"admin", "start", "errors"}
+    assert {r.name for r in root.sub_routers} == {"menu", "admin", "errors"}
 
 
 def test_error_router_is_last(dispatcher):
     root = dispatcher.sub_routers[0]
     assert root.sub_routers[-1].name == "errors"
+
+
+def test_menu_router_precedes_admin(dispatcher):
+    # Admin flows wait on free text; if `admin` came first its state handlers
+    # would swallow /start and strand the user mid-flow.
+    names = [r.name for r in dispatcher.sub_routers[0].sub_routers]
+    assert names.index("menu") < names.index("admin")
+
+
+def test_callback_updates_are_polled(dispatcher):
+    # Buttons are useless if callback_query is not in allowed_updates.
+    assert "callback_query" in dispatcher.resolve_used_update_types()
 
 
 def test_resolved_update_types_include_messages(dispatcher):
