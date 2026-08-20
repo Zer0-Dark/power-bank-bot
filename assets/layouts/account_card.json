@@ -1,0 +1,18 @@
+{
+  "_note": "Field centres were measured by diffing example_empty.png against example_filled.png. Coordinates are original-template pixels (3080x1993); the render is downscaled to output_width afterwards.",
+
+  "template": "account_card.png",
+  "font": "ReadexPro-Bold.ttf",
+  "color": [247, 247, 250],
+
+  "font_size_note": "Readex Pro is wider per glyph than the artwork's font, so 84 matches the design's height without overflowing the bar.",
+  "min_font_size": 40,
+  "output_width": 1540,
+
+  "fields": {
+    "real_name":     { "center": [1534, 586],  "max_width": 680, "font_size": 84 },
+    "facebook_name": { "center": [1534, 933],  "max_width": 680, "font_size": 84 },
+    "bank_number":   { "center": [1534, 1285], "max_width": 680, "font_size": 84 },
+    "username":      { "center": [1534, 1635], "max_width": 680, "font_size": 84 }
+  }
+}

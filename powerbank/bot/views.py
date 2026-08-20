@@ -134,3 +134,42 @@ NOT_FOUND = "لا يوجد سجل لهذا الشخص."
 NOT_A_MEMBER = "هذا الشخص ليس عضواً."
 BAD_ROLE = f"الصلاحية يجب أن تكون {ltr('user')} أو {ltr('admin')}."
 BALANCE_SOON = "💰 الحسابات لم تُفتح بعد.\n\nقريباً في التحديث القادم."
+
+
+# --- account card ---------------------------------------------------------
+
+CARD_MISSING = (
+    "🪪 ليس لديك بطاقة بعد.\n\n"
+    "اضغط على الزر بالأسفل لإدخال بياناتك."
+)
+
+ASK_REAL_NAME = "1/4 — أرسل <b>الاسم الحقيقي</b>."
+ASK_FACEBOOK_NAME = "2/4 — أرسل <b>الاسم بالفيسبوك</b>."
+ASK_BANK_NUMBER = (
+    "3/4 — أرسل <b>الرقم البنكي</b>.\n\n"
+    "أرقام فقط، ويمكن كتابته بدون الأصفار في البداية "
+    f"(مثلاً {ltr('76')} تصبح {ltr('00000076')})."
+)
+ASK_CARD_USERNAME = "4/4 — أرسل <b>اسم المستخدم</b> الذي تريده على البطاقة."
+CARD_RENDERING = "⏳ جاري إصدار البطاقة..."
+
+
+def card_caption(card) -> str:
+    """Caption sent alongside the rendered image."""
+    return (
+        f"🪪 <b>بطاقتك</b>\n\n"
+        f"الاسم الحقيقي: {ltr(card.real_name) if _is_latin(card.real_name) else card.real_name}\n"
+        f"الاسم بالفيسبوك: "
+        f"{ltr(card.facebook_name) if _is_latin(card.facebook_name) else card.facebook_name}\n"
+        f"الرقم البنكي: {code(card.formatted_number)}\n"
+        f"اسم المستخدم: {ltr(card.display_username)}"
+    )
+
+
+def card_saved(card) -> str:
+    return f"✅ تم حفظ بطاقتك برقم {code(card.formatted_number)}"
+
+
+def _is_latin(value: str) -> bool:
+    """Whether a value needs LTR isolation (no Arabic letters in it)."""
+    return not any("؀" <= ch <= "ۿ" for ch in value)

@@ -1,0 +1,21 @@
+# The host venv would overwrite the one built inside the image, and its
+# interpreter symlinks point at host paths that do not exist in the container.
+.venv/
+venv/
+
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local state and secrets
+.env
+*.db
+*.sqlite3
+
+# Scratch
+*.md
+!README.md

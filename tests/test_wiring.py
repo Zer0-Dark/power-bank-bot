@@ -47,7 +47,7 @@ def test_middlewares_registered_in_order(dispatcher):
 
 def test_feature_routers_are_attached(dispatcher):
     root = dispatcher.sub_routers[0]
-    assert {r.name for r in root.sub_routers} == {"menu", "admin", "errors"}
+    assert {r.name for r in root.sub_routers} == {"menu", "card", "admin", "errors"}
 
 
 def test_error_router_is_last(dispatcher):

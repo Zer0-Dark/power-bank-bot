@@ -4,7 +4,7 @@ A Telegram bot for a virtual bank game — accounts, balances, transfers, and
 rendered card/receipt images.
 
 - **Stack & architectural decisions:** [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status:** Phase 1d done — Arabic UI, invite-only access with roles, menu-driven. Render pipeline is next.
+- **Status:** Phase 1e done — Arabic UI, invite-only access, account cards rendered onto the template. Ledger is next.
 
 ## Setup
 
@@ -14,6 +14,19 @@ cp .env.example .env        # set BOT_TOKEN and SUPER_ADMIN_IDS
 make migrate                # create the schema (SQLite by default)
 make run                    # start polling
 ```
+
+## Account cards
+
+Members enter four values (real name, Facebook name, bank number, username) via
+a guided flow, and the bot renders them onto `assets/templates/account_card.png`.
+
+Field coordinates live in `assets/layouts/account_card.json` — measured by
+diffing the designer's empty and filled examples. Nudge a label there, not in
+Python.
+
+**Arabic shaping requires libraqm.** Pillow's wheel does not include Raqm; the
+Dockerfile installs `libraqm0` and the bot refuses to start without it, because
+the failure mode is silent tofu boxes rather than an error.
 
 ## Language
 

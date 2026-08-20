@@ -201,7 +201,48 @@ an ASCII codebase and fire on correct Arabic.
 letters come out disconnected and reversed. That needs `arabic-reshaper` +
 `python-bidi` at the render layer, unrelated to message text.
 
-### 8. Telegram file_id reuse
+### 8. Card rendering
+
+The account card draws four values onto pre-designed artwork: real name,
+Facebook name, bank number, username. The bank number is typed by the member,
+validated for digits and uniqueness -- not auto-issued.
+
+**Coordinates were measured, not eyeballed.** Diffing `example_empty.png`
+against `example_filled.png` gives the exact centre of every value the designer
+placed. They live in `assets/layouts/account_card.json` so nudging a label never
+touches Python.
+
+**Arabic shaping needs HarfBuzz, not presentation forms.** There are two ways to
+render Arabic with Pillow:
+
+- `arabic-reshaper` + `python-bidi` map text to Unicode Presentation Forms
+  (U+FE70-FEFF). This only works with fonts that still carry those codepoints.
+  Readex Pro carries **none** of them, so this path renders pure tofu. We tried
+  it first and it silently produced broken cards.
+- Pillow's RAQM layout engine drives the font's OpenType tables via HarfBuzz,
+  and handles bidi for mixed Arabic/Latin values. This is what we use, with raw
+  logical text.
+
+**Raqm is NOT in Pillow's binary wheel.** `features.check("raqm")` is False on a
+clean `pip install pillow`. Pillow loads the system library at runtime, so the
+Dockerfile installs `libraqm0`. `require_shaping()` runs at startup and refuses
+to boot without it -- rendering tofu is worse than failing.
+
+**One font covers every script.** Values mix Arabic names, a Latin username and
+digits. Readex Pro Bold (OFL, bundled in `assets/fonts/`) covers all three, so
+there is no font-fallback machinery. Droid Arabic Kufi looks closer to the
+artwork but has no Latin glyphs at all.
+
+**Text never overflows.** `fit_text` shrinks toward `min_font_size`, then
+truncates with an ellipsis. The renderer stays inside its box whatever it is
+handed.
+
+**Performance.** `optimize=True` cost 3.5s of CPU per render to save 1% of file
+size -- removed. Text is drawn at full 3080px resolution and downscaled to
+`output_width` afterwards, so glyph edges stay smooth. A card renders in ~0.4s,
+off the event loop via `asyncio.to_thread`.
+
+### 9. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
 unchanged image (e.g. a static coin graphic) should never re-render or re-upload.
 
@@ -238,7 +279,9 @@ power-bank-bot/
 │   ├── services/             # NO aiogram imports here
 │   │   ├── users.py          # contact log, lookup by id/@username
 │   │   └── access.py         # grant/revoke, super-admin seeding
-│   ├── render/               # Pillow (Phase 1b)
+│   ├── render/
+│   │   ├── engine.py         # shaping, fitting, layout JSON
+│   │   └── cards.py          # render_card, off-thread
 │   └── bot/
 │       ├── factory.py        # the single wiring point
 │       ├── filters.py        # HasRole / IsStaff / IsSuperAdmin
@@ -285,8 +328,8 @@ exception. Registration order is significant: user lookup needs the session.
 3. **Phase 1c (done)** — interactive UI: inline-button menus, guided FSM flows,
    role-scoped native command menu, shared view layer.
 4. **Phase 1d (done)** — Arabic UI throughout, with bidi isolation for Latin runs.
-5. **Phase 1e (next)** — render pipeline. `/card` replies with a pre-designed
-   image with data drawn onto it.
-6. **Phase 2** — accounts, ledger, transfers, transaction history.
+5. **Phase 1e (done)** — account cards: four typed values rendered onto the
+   template, guided entry flow, unique bank numbers.
+6. **Phase 2 (next)** — accounts, ledger, transfers, transaction history.
 7. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
 8. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.

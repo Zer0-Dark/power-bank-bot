@@ -10,12 +10,16 @@ so it can never be mutated by accident from here.
 """
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from powerbank.core.roles import Role
 from powerbank.db.base import Base, IntPKMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from powerbank.db.models.card import Card
 
 
 class User(IntPKMixin, TimestampMixin, Base):
@@ -54,6 +58,10 @@ class User(IntPKMixin, TimestampMixin, Base):
     granted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     granted_by: Mapped["User | None"] = relationship(remote_side="User.id")
     role_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    card: Mapped["Card | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
 
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

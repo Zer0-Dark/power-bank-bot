@@ -18,11 +18,24 @@ target_metadata = Base.metadata
 DATABASE_URL = get_settings().database_url
 
 
+# Autogenerate plugins to run. The check-constraint comparator is excluded:
+# SQLAlchemy emits a CHECK for every `Enum(create_constraint=True)` column, but
+# autogenerate cannot match the reflected constraint back to the model, so on
+# *every* migration it proposes dropping and recreating them. That already cost
+# us the role constraint once -- an unnoticed `upgrade` silently removed a real
+# data guarantee. Check constraints are authored by hand instead.
+AUTOGENERATE_PLUGINS = [
+    "alembic.autogenerate.*",
+    "~alembic.autogenerate.checkconstraint_byname",
+]
+
+
 def _configure(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        autogenerate_plugins=AUTOGENERATE_PLUGINS,
         # SQLite cannot ALTER columns in place; batch mode rewrites the table.
         render_as_batch=DATABASE_URL.startswith("sqlite"),
     )

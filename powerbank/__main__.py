@@ -10,6 +10,7 @@ from powerbank.bot.factory import create_bot, create_dispatcher
 from powerbank.core.config import get_settings
 from powerbank.core.logging import setup_logging
 from powerbank.db.session import create_engine, create_session_factory, session_scope
+from powerbank.render.engine import require_shaping
 from powerbank.services.access import sync_super_admins
 
 log = logging.getLogger(__name__)
@@ -18,6 +19,9 @@ log = logging.getLogger(__name__)
 async def _run() -> None:
     settings = get_settings()
     setup_logging(settings.log_level)
+
+    # Fail now, not when a member asks for their card and gets tofu boxes.
+    require_shaping()
 
     engine = create_engine(settings)
     session_factory = create_session_factory(engine)

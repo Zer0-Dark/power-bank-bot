@@ -14,6 +14,7 @@ def _nav(text: str, to: Nav) -> InlineKeyboardButton:
 def main_menu(role: Role) -> InlineKeyboardMarkup:
     """The home screen. Staff see an extra row; users never see it exists."""
     builder = InlineKeyboardBuilder()
+    builder.row(_nav("🪪 بطاقتي", Nav.CARD))
     builder.row(_nav("💰 الرصيد", Nav.BALANCE))
     builder.row(_nav("❓ المساعدة", Nav.HELP))
     if role.is_staff:
@@ -61,4 +62,18 @@ def confirm_removal(telegram_id: int) -> InlineKeyboardMarkup:
             callback_data=ConfirmCb(yes=False, telegram_id=telegram_id).pack(),
         ),
     )
+    return builder.as_markup()
+
+
+def card_missing() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("📝 إنشاء البطاقة", Nav.CARD_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.MAIN))
+    return builder.as_markup()
+
+
+def card_actions() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("✏️ تعديل البيانات", Nav.CARD_EDIT))
+    builder.row(_nav("⬅️ رجوع", Nav.MAIN))
     return builder.as_markup()
