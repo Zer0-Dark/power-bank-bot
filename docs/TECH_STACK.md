@@ -242,6 +242,18 @@ size -- removed. Text is drawn at full 3080px resolution and downscaled to
 `output_width` afterwards, so glyph edges stay smooth. A card renders in ~0.4s,
 off the event loop via `asyncio.to_thread`.
 
+**Nothing is written to disk.** The render goes `BytesIO` -> `BufferedInputFile`
+-> Telegram, and the buffer is freed as soon as the send completes. Cards are
+regenerated on demand from the `cards` row, so the image is never stored -- no
+temp files, no upload directory to clean up. Tests assert this: a render inside
+a sandboxed cwd/tempdir must leave the filesystem byte-identical, and the buffer
+must be garbage-collected once dropped. Both would break the moment someone
+"optimises" rendering into a temp file.
+
+The only persisted state is the `cards` row itself: the four values plus
+timestamps. That is the source of truth the image is derived from, not a cache
+of the image.
+
 ### 9. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
 unchanged image (e.g. a static coin graphic) should never re-render or re-upload.

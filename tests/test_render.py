@@ -168,3 +168,53 @@ def test_layout_fields_are_inside_the_template():
 @pytest.mark.parametrize("value", ["MusaGRO", "١٢٣", "00000076", "أ ب ج"])
 def test_mixed_scripts_render_without_error(value):
     render(LAYOUT, {"username": value})
+
+
+# --- no junk on disk -----------------------------------------------------
+
+
+def test_rendering_writes_nothing_to_disk(tmp_path, monkeypatch):
+    """Cards exist in memory only, from render to upload.
+
+    Guards against a future change that "optimises" rendering by writing a
+    temp file -- which would leave a 1.5MB PNG per card on the server.
+    """
+    import os
+    import tempfile
+
+    # Resolve assets *before* chdir, or the relative path follows us.
+    assets = ASSETS.resolve()
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+
+    def listing() -> set[str]:
+        found = set()
+        for root, _, files in os.walk(tmp_path):
+            found |= {os.path.join(root, f) for f in files}
+        return found
+
+    before = listing()
+    buffer = render_card_sync(card(), assets)
+    assert len(buffer.getvalue()) > 0
+
+    assert listing() == before, "the renderer left files behind"
+
+
+def test_render_returns_an_in_memory_buffer():
+    from io import BytesIO
+
+    assert isinstance(render_card_sync(card(), ASSETS), BytesIO)
+
+
+def test_buffer_is_released_once_dropped():
+    import gc
+    import weakref
+
+    buffer = render_card_sync(card(), ASSETS)
+    ref = weakref.ref(buffer)
+
+    del buffer
+    gc.collect()
+
+    assert ref() is None, "a retained buffer means 1.5MB leaked per card"
