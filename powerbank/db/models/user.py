@@ -59,8 +59,12 @@ class User(IntPKMixin, TimestampMixin, Base):
     granted_by: Mapped["User | None"] = relationship(remote_side="User.id")
     role_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    card: Mapped["Card | None"] = relationship(
-        back_populates="user", cascade="all, delete-orphan", uselist=False
+    # Cards this user has issued. No cascade: the FK is ON DELETE SET NULL so a
+    # removed employee's cards survive as an audit record.
+    issued_cards: Mapped[list["Card"]] = relationship(
+        back_populates="created_by",
+        order_by="Card.created_at.desc()",
+        passive_deletes=True,
     )
 
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

@@ -28,6 +28,8 @@ STAFF_COMMANDS = [
     BotCommand(command="remove", description="سحب صلاحية شخص"),
     BotCommand(command="who", description="البحث عن شخص"),
     BotCommand(command="attempts", description="من حاول الدخول"),
+    BotCommand(command="cards", description="بطاقات موظف بعينه"),
+    BotCommand(command="card", description="البحث عن بطاقة"),
 ]
 
 

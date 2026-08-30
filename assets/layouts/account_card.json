@@ -2,8 +2,16 @@
   "_note": "Field centres were measured by diffing example_empty.png against example_filled.png. Coordinates are original-template pixels (3080x1993); the render is downscaled to output_width afterwards.",
 
   "template": "account_card.png",
+
+  "font_note": "`font` is the default face; each field may override it. To use the intended faces, drop YaModernPro.ttf / GodofThunder.ttf / Munro.ttf into assets/fonts/ and set the per-field `font` values below (real_name + facebook_name -> YaModernPro, bank_number -> Munro, username -> GodofThunder). Until then everything uses the bundled Readex Pro, which covers Arabic, Latin and digits.",
   "font": "ReadexPro-Bold.ttf",
-  "color": [247, 247, 250],
+
+  "color": [20, 20, 20],
+
+  "fill_note": "Glyphs are a vertical black->grey gradient with a white outline. `color` is only the fallback when `gradient` is removed.",
+  "gradient": [[10, 10, 10], [90, 90, 90]],
+  "stroke_width": 8,
+  "stroke_color": [255, 255, 255],
 
   "font_size_note": "Readex Pro is wider per glyph than the artwork's font, so 84 matches the design's height without overflowing the bar.",
   "min_font_size": 40,

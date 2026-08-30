@@ -6,11 +6,16 @@ exceeded, so the packed length is asserted rather than assumed.
 
 import pytest
 
-from powerbank.bot.callbacks import ConfirmCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
 from powerbank.bot.keyboards import menu
 from powerbank.core.roles import Role
+from powerbank.db.models import User
 
 TELEGRAM_CALLBACK_LIMIT = 64
+
+
+def _member(tg: int = 436677576, username: str = "clerk") -> User:
+    return User(telegram_id=tg, role=Role.USER, username=username)
 
 
 def all_buttons(markup):
@@ -36,13 +41,47 @@ def test_staff_see_the_admin_button(role: Role):
 
 def test_admin_menu_covers_every_admin_action():
     found = set(payloads(menu.admin_menu()))
-    for destination in (Nav.MEMBERS, Nav.ATTEMPTS, Nav.ADD, Nav.REMOVE, Nav.WHO):
+    for destination in (
+        Nav.MEMBERS,
+        Nav.ATTEMPTS,
+        Nav.ADD,
+        Nav.REMOVE,
+        Nav.WHO,
+        Nav.CARDS,
+        Nav.CARD_LOOKUP,
+    ):
         assert NavCb(to=destination).pack() in found
 
 
 def test_every_screen_offers_a_way_back():
-    for markup in (menu.admin_menu(), menu.back_to(Nav.MAIN), menu.cancel_only()):
+    rows = [(_member(), 3)]
+    for markup in (
+        menu.admin_menu(),
+        menu.back_to(Nav.MAIN),
+        menu.cancel_only(),
+        menu.card_menu(),
+        menu.card_issued_actions(),
+        menu.issue_summary_kb(rows),
+        menu.issue_summary_kb([]),
+    ):
         assert payloads(markup), "a screen with no exit strands the user"
+
+
+def test_card_issued_actions_lets_you_issue_again_and_view_the_list():
+    found = set(payloads(menu.card_issued_actions()))
+    assert NavCb(to=Nav.CARD_NEW).pack() in found
+    assert NavCb(to=Nav.CARD).pack() in found
+
+
+def test_issue_summary_rows_drill_into_an_employee():
+    rows = [(_member(1, "a"), 2), (_member(2, "b"), 0)]
+    parsed = [
+        EmployeeCardsCb.unpack(p)
+        for p in payloads(menu.issue_summary_kb(rows))
+        if p.startswith("ecards:")
+    ]
+    assert {p.telegram_id for p in parsed} == {1, 2}
+    assert NavCb(to=Nav.ADMIN).pack() in payloads(menu.issue_summary_kb(rows))
 
 
 # --- payload round-trips ---
@@ -65,6 +104,11 @@ def test_confirm_payload_carries_its_own_target():
     assert parsed.telegram_id == 436677576
 
 
+def test_employee_cards_payload_round_trips():
+    packed = EmployeeCardsCb(telegram_id=436677576).pack()
+    assert EmployeeCardsCb.unpack(packed).telegram_id == 436677576
+
+
 def test_role_choice_offers_user_and_admin_only():
     offered = {RoleCb.unpack(p).role for p in payloads(menu.role_choice()) if p.startswith("role:")}
     assert offered == {Role.USER, Role.ADMIN}
@@ -81,6 +125,9 @@ def test_role_choice_offers_user_and_admin_only():
         menu.role_choice(),
         menu.cancel_only(),
         menu.confirm_removal(9999999999999),
+        menu.card_menu(),
+        menu.card_issued_actions(),
+        menu.issue_summary_kb([(_member(9999999999999, "x" * 20), 999)]),
     ],
 )
 def test_payloads_fit_telegrams_64_byte_limit(markup):

@@ -228,10 +228,18 @@ clean `pip install pillow`. Pillow loads the system library at runtime, so the
 Dockerfile installs `libraqm0`. `require_shaping()` runs at startup and refuses
 to boot without it -- rendering tofu is worse than failing.
 
-**One font covers every script.** Values mix Arabic names, a Latin username and
-digits. Readex Pro Bold (OFL, bundled in `assets/fonts/`) covers all three, so
-there is no font-fallback machinery. Droid Arabic Kufi looks closer to the
-artwork but has no Latin glyphs at all.
+**One font per field, not one font per card.** Values mix scripts that no single
+face renders well, so each field names its own file in `account_card.json`:
+_Ya Modern Pro_ for the Arabic names, _GodofThunder_ for the Latin username,
+_Munro_ for the account number. The top-level `font` is only the default for a
+field that names none. `Layout.font_for(name)` resolves the two.
+
+**Glyphs are a gradient with an outline.** Each value is a vertical black->grey
+ramp poured into the letter shapes, ringed by a white stroke so it reads on the
+artwork's coloured bars. Pillow has no gradient fill: `_draw_value` draws the
+white outline directly, then masks a ramp image by the text and pastes it.
+`gradient`, `stroke_width` and `stroke_color` live in the layout JSON; drop
+`gradient` and the fill falls back to the flat `color`.
 
 **Text never overflows.** `fit_text` shrinks toward `min_font_size`, then
 truncates with an ellipsis. The renderer stays inside its box whatever it is
@@ -250,9 +258,18 @@ a sandboxed cwd/tempdir must leave the filesystem byte-identical, and the buffer
 must be garbage-collected once dropped. Both would break the moment someone
 "optimises" rendering into a temp file.
 
-The only persisted state is the `cards` row itself: the four values plus
-timestamps. That is the source of truth the image is derived from, not a cache
-of the image.
+The only persisted state is the `cards` row itself: the four values, timestamps,
+and `created_by_id`. That is the source of truth the image is derived from, not
+a cache of the image.
+
+**Cards are an append-only audit log.** The bot's users are bank employees who
+issue cards for other people, so a card is not one-per-user and not owned by
+whoever ran the flow -- it is a standalone row tagged with `created_by_id`, the
+employee who issued it, and it is never edited (a mistake is a new row). The FK
+is `ON DELETE SET NULL`: removing an employee must not delete the cards they
+issued. Per-employee counts and listings (`services/cards.py::issue_counts`,
+`list_created_by`) and a bank-number/name lookup (`find_card`) drive the staff
+oversight screens.
 
 ### 9. Telegram file_id reuse
 Once an image is uploaded to Telegram, cache its `file_id`. Re-sending an
@@ -341,7 +358,9 @@ exception. Registration order is significant: user lookup needs the session.
    role-scoped native command menu, shared view layer.
 4. **Phase 1d (done)** — Arabic UI throughout, with bidi isolation for Latin runs.
 5. **Phase 1e (done)** — account cards: four typed values rendered onto the
-   template, guided entry flow, unique bank numbers.
+   template, guided entry flow, unique bank numbers. Reworked so an employee
+   issues many standalone, immutable cards (each tagged with `created_by_id`),
+   with per-employee counts/listings and a card lookup for staff.
 6. **Phase 2 (next)** — accounts, ledger, transfers, transaction history.
 7. **Phase 3** — game mechanics (earning, shops, interest, whatever the design calls for).
 8. **Phase 4** — Postgres, Redis, Docker deploy, admin tooling.

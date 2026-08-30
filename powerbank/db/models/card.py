@@ -1,13 +1,20 @@
 """The account card: the four values printed onto the template.
 
-One card per user. The bank number is allocated by us, not typed by the user,
-so it is unique and sequential like a real account number.
+A card is a standalone, immutable record. A bank employee runs the issuing flow
+once per person they are making a card for, so many cards can share the same
+`created_by_id` and a card is never edited after it is generated. The bank
+number is typed by the employee and is unique across every card.
 """
+
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from powerbank.db.base import Base, IntPKMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from powerbank.db.models.user import User
 
 BANK_NUMBER_DIGITS = 8
 
@@ -15,10 +22,15 @@ BANK_NUMBER_DIGITS = 8
 class Card(IntPKMixin, TimestampMixin, Base):
     __tablename__ = "cards"
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    # The employee who ran the issuing flow. SET NULL, not CASCADE: removing an
+    # employee must not erase the cards they issued -- they are an audit record.
+    created_by_id: Mapped[int | None] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
-    user: Mapped["User"] = relationship(back_populates="card")  # noqa: F821
+    created_by: Mapped["User | None"] = relationship(back_populates="issued_cards")
 
     # Stored as an integer and zero-padded for display: sequencing and the
     # uniqueness guarantee both belong to the number, not to its formatting.
@@ -47,4 +59,4 @@ class Card(IntPKMixin, TimestampMixin, Base):
         }
 
     def __repr__(self) -> str:
-        return f"<Card user={self.user_id} no={self.formatted_number}>"
+        return f"<Card id={self.id} by={self.created_by_id} no={self.formatted_number}>"

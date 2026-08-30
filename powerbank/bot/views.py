@@ -12,7 +12,7 @@ from aiogram.utils.markdown import hbold
 
 from powerbank.core.roles import Role
 from powerbank.core.text import cmd, code, ltr
-from powerbank.db.models import User
+from powerbank.db.models import Card, User
 
 BRAND = ltr("Power Bank")
 
@@ -31,6 +31,8 @@ STAFF_HELP = f"""
 {cmd("members")} — عرض كل من لديه صلاحية
 {cmd("who")} — البحث عن شخص
 {cmd("attempts")} — من حاول الدخول
+{cmd("cards")} — بطاقات موظف بعينه
+{cmd("card")} — البحث عن بطاقة
 
 كل أمر بالأعلى له زر في لوحة الإدارة.
 يمكنك أيضاً كتابة الأمر مع المعرّف مباشرة، مثل {ltr("/add 12345 admin")}."""
@@ -80,7 +82,7 @@ def attempts_list(knocking: list[User]) -> str:
     return f"{hbold('آخر محاولات الدخول')}\n" + "\n".join(lines)
 
 
-def profile(found: User) -> str:
+def profile(found: User, issued_count: int = 0) -> str:
     lines = [
         hbold(ltr(found.display)),
         f"المعرّف: {code(found.telegram_id)}",
@@ -92,6 +94,8 @@ def profile(found: User) -> str:
         lines.append(f"آخر ظهور: {ltr(f'{found.last_seen_at:%Y-%m-%d %H:%M}')}")
     if found.denied_attempts:
         lines.append(f"محاولات مرفوضة: {ltr(found.denied_attempts)}")
+    if found.role.is_member:
+        lines.append(f"بطاقات صادرة: {ltr(issued_count)}")
     if found.is_banned:
         lines.append("⚠️ محظور")
     return "\n".join(lines)
@@ -129,19 +133,17 @@ ASK_TARGET_ADD = (
 ASK_TARGET_REMOVE = "من تريد إزالته؟\n\nأرسل المعرّف الرقمي أو @اسم المستخدم."
 ASK_TARGET_WHO = "عن من تبحث؟\n\nأرسل المعرّف الرقمي أو @اسم المستخدم."
 ASK_ROLE = "ما الصلاحية التي تريد منحها؟"
+ASK_TARGET_CARDS = "عن بطاقات من تبحث؟\n\nأرسل المعرّف الرقمي أو @اسم المستخدم."
+ASK_CARD_QUERY = "🔎 أرسل <b>الرقم البنكي</b> أو <b>الاسم</b> للبحث عن بطاقة."
 CANCELLED = "تم الإلغاء."
 NOT_FOUND = "لا يوجد سجل لهذا الشخص."
 NOT_A_MEMBER = "هذا الشخص ليس عضواً."
+CARD_NOT_FOUND = "لا توجد بطاقة مطابقة."
 BAD_ROLE = f"الصلاحية يجب أن تكون {ltr('user')} أو {ltr('admin')}."
 BALANCE_SOON = "💰 الحسابات لم تُفتح بعد.\n\nقريباً في التحديث القادم."
 
 
 # --- account card ---------------------------------------------------------
-
-CARD_MISSING = (
-    "🪪 ليس لديك بطاقة بعد.\n\n"
-    "اضغط على الزر بالأسفل لإدخال بياناتك."
-)
 
 ASK_REAL_NAME = "1/4 — أرسل <b>الاسم الحقيقي</b>."
 ASK_FACEBOOK_NAME = "2/4 — أرسل <b>الاسم بالفيسبوك</b>."
@@ -154,20 +156,69 @@ ASK_CARD_USERNAME = "4/4 — أرسل <b>اسم المستخدم</b> الذي ت
 CARD_RENDERING = "⏳ جاري إصدار البطاقة..."
 
 
-def card_caption(card) -> str:
+def card_caption(card: Card) -> str:
     """Caption sent alongside the rendered image."""
     return (
-        f"🪪 <b>بطاقتك</b>\n\n"
-        f"الاسم الحقيقي: {ltr(card.real_name) if _is_latin(card.real_name) else card.real_name}\n"
-        f"الاسم بالفيسبوك: "
-        f"{ltr(card.facebook_name) if _is_latin(card.facebook_name) else card.facebook_name}\n"
+        f"🪪 <b>البطاقة</b>\n\n"
+        f"الاسم الحقيقي: {_name(card.real_name)}\n"
+        f"الاسم بالفيسبوك: {_name(card.facebook_name)}\n"
         f"الرقم البنكي: {code(card.formatted_number)}\n"
         f"اسم المستخدم: {ltr(card.display_username)}"
     )
 
 
-def card_saved(card) -> str:
-    return f"✅ تم حفظ بطاقتك برقم {code(card.formatted_number)}"
+def card_details(card: Card, issuer: User | None) -> str:
+    """The full record of one card, for an admin lookup."""
+    return (
+        f"🪪 <b>البطاقة</b>\n\n"
+        f"الاسم الحقيقي: {_name(card.real_name)}\n"
+        f"الاسم بالفيسبوك: {_name(card.facebook_name)}\n"
+        f"الرقم البنكي: {code(card.formatted_number)}\n"
+        f"اسم المستخدم: {ltr(card.display_username)}\n"
+        f"أصدرها: {ltr(issuer.display) if issuer else '—'}\n"
+        f"بتاريخ: {_issued_at(card)}"
+    )
+
+
+def _card_line(card: Card) -> str:
+    return f"• {code(card.formatted_number)} — {_name(card.real_name)} — {_issued_at(card)}"
+
+
+def my_issued(cards: list[Card], total: int) -> str:
+    """The employee's own issued-cards list."""
+    if not cards:
+        return "🪪 لم تُصدر أي بطاقة بعد.\n\nاضغط الزر بالأسفل لإصدار بطاقة."
+    head = f"🪪 <b>بطاقاتك</b> ({ltr(total)})"
+    if total > len(cards):
+        head += f"\nأحدث {ltr(len(cards))}"
+    return head + "\n" + "\n".join(_card_line(c) for c in cards)
+
+
+def employee_cards(employee: User, cards: list[Card], total: int) -> str:
+    """One employee's issued cards, for an admin."""
+    head = f"🪪 بطاقات {hbold(ltr(employee.display))} ({ltr(total)})"
+    if not cards:
+        return head + "\n\nلا توجد بطاقات."
+    if total > len(cards):
+        head += f"\nأحدث {ltr(len(cards))}"
+    return head + "\n" + "\n".join(_card_line(c) for c in cards)
+
+
+def issue_summary(rows: list[tuple[User, int]]) -> str:
+    """Every member and how many cards they have issued."""
+    if not rows:
+        return "لا يوجد أعضاء بعد."
+    lines = [f"• {ltr(user.display)} — {ltr(count)} بطاقة" for user, count in rows]
+    return f"{hbold('البطاقات الصادرة')}\n" + "\n".join(lines)
+
+
+def _name(value: str) -> str:
+    """Isolate a value as LTR only if it carries no Arabic letters."""
+    return ltr(value) if _is_latin(value) else value
+
+
+def _issued_at(card: Card) -> str:
+    return ltr(f"{card.created_at:%Y-%m-%d}")
 
 
 def _is_latin(value: str) -> bool:

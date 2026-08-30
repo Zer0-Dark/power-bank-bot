@@ -5,11 +5,22 @@ from datetime import UTC, datetime
 from powerbank.bot import views
 from powerbank.core.roles import Role
 from powerbank.core.text import FSI, PDI
-from powerbank.db.models import User
+from powerbank.db.models import Card, User
 
 
 def make(tg: int, role: Role, username: str | None = None) -> User:
     return User(telegram_id=tg, role=role, username=username, denied_attempts=0)
+
+
+def card(**overrides) -> Card:
+    base = {
+        "real_name": "سجاد عدي الفهد",
+        "facebook_name": "Sajjad Adi",
+        "bank_number": 76,
+        "display_username": "MusaGRO",
+        "created_at": datetime(2026, 8, 30, 12, 0, tzinfo=UTC),
+    }
+    return Card(**(base | overrides))
 
 
 def test_help_hides_admin_commands_from_users():
@@ -83,6 +94,51 @@ def test_granted_distinguishes_new_from_updated():
     assert "تم تحديث" in views.granted(user, Role.ADMIN, is_new=False)
 
 
+# --- account cards -----------------------------------------------------------
+
+
+def test_profile_shows_issued_count_for_a_member():
+    text = views.profile(make(7, Role.USER, "emp"), 3)
+    assert "بطاقات صادرة" in text
+    assert "3" in text
+
+
+def test_profile_omits_issued_count_for_a_stranger():
+    assert "بطاقات صادرة" not in views.profile(make(8, Role.NONE, "x"), 0)
+
+
+def test_my_issued_lists_cards_and_total():
+    text = views.my_issued([card(bank_number=76), card(bank_number=77)], 5)
+    assert "00000076" in text
+    assert "أحدث" in text  # 5 total, 2 shown
+
+
+def test_my_issued_empty_is_a_prompt():
+    assert views.my_issued([], 0).strip()
+
+
+def test_employee_cards_names_the_employee():
+    text = views.employee_cards(make(9, Role.USER, "emp"), [card()], 1)
+    assert "@emp" in text
+    assert "00000076" in text
+
+
+def test_issue_summary_ranks_members():
+    rows = [(make(1, Role.USER, "a"), 4), (make(2, Role.USER, "b"), 0)]
+    text = views.issue_summary(rows)
+    assert text.index("@a") < text.index("@b")
+
+
+def test_card_details_shows_issuer_and_date():
+    text = views.card_details(card(), make(1, Role.USER, "clerk"))
+    assert "@clerk" in text
+    assert "2026-08-30" in text
+
+
+def test_card_details_tolerates_a_missing_issuer():
+    assert "—" in views.card_details(card(), None)
+
+
 # --- bidi safety ---------------------------------------------------------
 #
 # Every Latin/numeric run inside an Arabic paragraph must be isolated, or the
@@ -137,6 +193,18 @@ def test_attempts_isolates_timestamp():
     assert any("08-19" in r for r in isolated_runs(views.attempts_list([stranger])))
 
 
+def test_card_screens_isolate_numbers_and_dates():
+    clerk = make(1, Role.USER, "clerk")
+    for run_present, text in (
+        ("00000076", views.my_issued([card()], 1)),
+        ("2026-08-30", views.my_issued([card()], 1)),
+        ("00000076", views.employee_cards(clerk, [card()], 1)),
+        ("MusaGRO", views.card_details(card(), clerk)),
+        ("4", views.issue_summary([(clerk, 4)])),
+    ):
+        assert any(run_present in r for r in isolated_runs(text)), (run_present, text)
+
+
 def test_isolates_are_balanced_on_every_screen():
     """An unclosed isolate corrupts the direction of everything after it."""
     user = make(436677576, Role.ADMIN, "Zer00dark")
@@ -150,11 +218,20 @@ def test_isolates_are_balanced_on_every_screen():
         views.admin_panel(),
         views.members_list([user]),
         views.attempts_list([user]),
-        views.profile(user),
+        views.profile(user, 3),
         views.granted(user, Role.ADMIN, is_new=True),
         views.removed(user),
         views.confirm_removal(user),
         views.unknown_username("@ghost"),
+        views.my_issued([card()], 1),
+        views.my_issued([], 0),
+        views.employee_cards(user, [card()], 1),
+        views.employee_cards(user, [], 0),
+        views.issue_summary([(user, 3)]),
+        views.issue_summary([]),
+        views.card_details(card(), user),
+        views.card_details(card(), None),
+        views.card_caption(card()),
     ]
     for text in screens:
         assert text.count(FSI) == text.count(PDI), text

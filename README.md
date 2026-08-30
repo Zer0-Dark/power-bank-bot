@@ -4,7 +4,7 @@ A Telegram bot for a virtual bank game — accounts, balances, transfers, and
 rendered card/receipt images.
 
 - **Stack & architectural decisions:** [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status:** Phase 1e done — Arabic UI, invite-only access, account cards rendered onto the template. Ledger is next.
+- **Status:** Phase 1e done — Arabic UI, invite-only access, employee-issued account cards rendered onto the template. Ledger is next.
 
 ## Setup
 
@@ -17,8 +17,21 @@ make run                    # start polling
 
 ## Account cards
 
-Members enter four values (real name, Facebook name, bank number, username) via
-a guided flow, and the bot renders them onto `assets/templates/account_card.png`.
+The bot's users are **bank employees**. An employee runs a four-step guided flow
+(real name, Facebook name, bank number, username) once per person they are
+making a card for, and the bot renders the values onto
+`assets/templates/account_card.png`.
+
+Each completed flow inserts a **standalone, immutable** row in `cards`, tagged
+with `created_by_id` — the employee who issued it. There is no "my card" and no
+edit: a mistake means issuing a new card. The bank number is typed by the
+employee and is unique across every card. `created_by_id` is `ON DELETE SET
+NULL`, so removing an employee leaves the cards they issued as an audit record.
+
+**Oversight (staff):** `/who <id|@user>` shows a "بطاقات صادرة: N" line;
+`/cards <id|@employee>` lists one employee's issued cards; the `🪪 البطاقات`
+panel screen ranks every member by issued count (tap a row to drill in);
+`/card <bank number | name>` looks up a single card and re-sends its image.
 
 Field coordinates live in `assets/layouts/account_card.json` — measured by
 diffing the designer's empty and filled examples. Nudge a label there, not in
@@ -51,7 +64,8 @@ Super admins come from `SUPER_ADMIN_IDS` in `.env` and are seeded at every
 startup — the bot itself cannot create one, since nobody can remove one.
 
 Admin commands: `/add <id|@user> [user|admin]`, `/remove <id|@user>`,
-`/members`, `/who <id|@user>`, `/attempts`.
+`/members`, `/who <id|@user>`, `/attempts`, `/cards <id|@employee>`,
+`/card <number|name>`.
 
 Every one of those also has a button in the admin panel — `/start` opens the
 menu. Running a command with no arguments starts the same guided flow the

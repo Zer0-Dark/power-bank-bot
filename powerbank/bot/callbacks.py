@@ -18,15 +18,16 @@ class Nav(StrEnum):
     MAIN = "main"
     HELP = "help"
     BALANCE = "balance"
-    CARD = "card"
-    CARD_NEW = "card_new"
-    CARD_EDIT = "card_edit"
+    CARD = "card"  # member: my issued-cards list (landing)
+    CARD_NEW = "card_new"  # member: start the issuing flow
     ADMIN = "admin"
     MEMBERS = "members"
     ATTEMPTS = "attempts"
     ADD = "add"
     REMOVE = "remove"
     WHO = "who"
+    CARDS = "cards"  # admin: all-employees issue summary
+    CARD_LOOKUP = "card_find"  # admin: single-card lookup
     CANCEL = "cancel"
 
 
@@ -48,4 +49,10 @@ class ConfirmCb(CallbackData, prefix="ok"):
     """
 
     yes: bool
+    telegram_id: int
+
+
+class EmployeeCardsCb(CallbackData, prefix="ecards"):
+    """Drill from the issue summary into one employee's issued cards."""
+
     telegram_id: int

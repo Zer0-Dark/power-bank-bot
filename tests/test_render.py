@@ -43,7 +43,7 @@ def test_arabic_shapes_to_connected_glyphs():
     exact font metrics.
     """
     draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    font_path = str(LAYOUT.font)
+    font_path = str(LAYOUT.font_for("real_name"))
 
     shaped = draw.textlength(ARABIC, font=load_font(font_path, 88))
     isolated = draw.textlength(
@@ -53,18 +53,30 @@ def test_arabic_shapes_to_connected_glyphs():
     assert shaped < isolated
 
 
-def test_font_covers_every_script_the_card_uses():
-    """Arabic names, a Latin username and digits share one font face."""
+@pytest.mark.parametrize(
+    ("field_name", "sample"),
+    [
+        ("real_name", ARABIC.replace(" ", "")),
+        ("facebook_name", ARABIC.replace(" ", "")),
+        ("bank_number", "0123456789"),
+        ("username", "MusaGRO"),
+    ],
+)
+def test_each_fields_font_covers_its_own_script(field_name: str, sample: str):
+    """No single face covers the card any more -- each field carries its own.
+
+    So the check is per field: the names' font must have Arabic, the number's
+    font must have digits, the username's font must have Latin letters.
+    """
     from fontTools.ttLib import TTFont
 
-    font = TTFont(str(LAYOUT.font), fontNumber=0)
+    font = TTFont(str(LAYOUT.font_for(field_name)), fontNumber=0)
     covered = set()
     for table in font["cmap"].tables:
         covered |= set(table.cmap.keys())
 
-    for sample in (ARABIC.replace(" ", ""), "MusaGRO", "0123456789"):
-        missing = [c for c in sample if ord(c) not in covered]
-        assert not missing, f"font is missing {missing}"
+    missing = [c for c in sample if ord(c) not in covered]
+    assert not missing, f"{field_name} font is missing {missing}"
 
 
 def test_renders_a_png_at_the_configured_output_width():
@@ -116,6 +128,26 @@ def test_no_tofu_boxes_are_drawn():
     assert real.crop(box).tobytes() != tofu.crop(box).tobytes()
 
 
+def test_values_have_a_white_outline_and_a_dark_to_grey_body():
+    """Glyphs are a black->grey gradient ringed by a white stroke.
+
+    Checks the three tones actually land in the box: near-white for the
+    outline, near-black for the top of the ramp, mid-grey for the bottom.
+    """
+    filled = Image.open(render_card_sync(card(), ASSETS)).convert("RGB")
+    box = scaled_box(LAYOUT.fields["real_name"], filled)
+    raw = filled.crop(box).tobytes()
+    pixels = [tuple(raw[i : i + 3]) for i in range(0, len(raw), 3)]
+
+    white = [p for p in pixels if min(p) > 235]
+    dark = [p for p in pixels if max(p) < 45]
+    grey = [p for p in pixels if all(55 <= c <= 140 for c in p)]
+
+    assert white, "no white outline pixels"
+    assert dark, "no near-black gradient pixels"
+    assert grey, "no mid-grey gradient pixels -- the ramp is not being applied"
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -130,16 +162,28 @@ def test_text_never_overflows_its_box(value: str):
     draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
     field = LAYOUT.fields["real_name"]
 
-    font, drawn = fit_text(draw, value, str(LAYOUT.font), field, LAYOUT.min_font_size)
+    font, drawn = fit_text(
+        draw,
+        value,
+        str(LAYOUT.font_for("real_name")),
+        field,
+        LAYOUT.min_font_size,
+        LAYOUT.stroke_width,
+    )
 
-    assert draw.textlength(drawn, font=font) <= field.max_width
+    assert draw.textlength(drawn, font=font) + 2 * LAYOUT.stroke_width <= field.max_width
 
 
 def test_untruncatable_text_is_ellipsised_not_clipped():
     draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
 
     _, drawn = fit_text(
-        draw, "W" * 80, str(LAYOUT.font), LAYOUT.fields["real_name"], LAYOUT.min_font_size
+        draw,
+        "W" * 80,
+        str(LAYOUT.font_for("real_name")),
+        LAYOUT.fields["real_name"],
+        LAYOUT.min_font_size,
+        LAYOUT.stroke_width,
     )
 
     assert drawn.endswith("…"), "silent clipping hides that a value was cut"

@@ -16,15 +16,16 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from powerbank.bot import views
-from powerbank.bot.callbacks import ConfirmCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
 from powerbank.bot.commands import sync_for_user
 from powerbank.bot.filters import IsStaff
 from powerbank.bot.keyboards import menu
-from powerbank.bot.screens import show
+from powerbank.bot.screens import send_card_image, show
+from powerbank.core.config import Settings
 from powerbank.core.exceptions import UserFacingError
 from powerbank.core.roles import Role
 from powerbank.db.models import User
-from powerbank.services import access, users
+from powerbank.services import access, cards, users
 
 router = Router(name="admin")
 router.message.filter(IsStaff)
@@ -47,6 +48,14 @@ class RemoveMember(StatesGroup):
 
 class Lookup(StatesGroup):
     target = State()
+
+
+class EmployeeCards(StatesGroup):
+    target = State()
+
+
+class FindCard(StatesGroup):
+    query = State()
 
 
 async def _resolve_target(session: AsyncSession, query: str) -> int:
@@ -191,7 +200,78 @@ async def who_got_target(message: Message, state: FSMContext, session: AsyncSess
     if found is None:
         await message.answer(views.NOT_FOUND, reply_markup=menu.back_to(Nav.ADMIN))
         return
-    await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))
+    issued = await cards.count_created_by(session, found)
+    await message.answer(views.profile(found, issued), reply_markup=menu.back_to(Nav.ADMIN))
+
+
+# --------------------------------------------------------------------------
+# Card oversight
+# --------------------------------------------------------------------------
+
+
+async def _employee_cards_reply(message: Message, session: AsyncSession, found: User) -> None:
+    issued = await cards.list_created_by(session, found)
+    total = await cards.count_created_by(session, found)
+    await message.answer(
+        views.employee_cards(found, issued, total), reply_markup=menu.back_to(Nav.CARDS)
+    )
+
+
+async def _card_lookup_reply(
+    message: Message, session: AsyncSession, settings: Settings, query: str
+) -> None:
+    card = await cards.find_card(session, query)
+    if card is None:
+        await message.answer(views.CARD_NOT_FOUND, reply_markup=menu.back_to(Nav.ADMIN))
+        return
+    issuer = await session.get(User, card.created_by_id) if card.created_by_id else None
+    await message.answer(views.card_details(card, issuer), reply_markup=menu.back_to(Nav.ADMIN))
+    await send_card_image(message, card, settings)
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.CARDS))
+async def open_cards_summary(query: CallbackQuery, session: AsyncSession) -> None:
+    rows = await cards.issue_counts(session)
+    await show(query, views.issue_summary(rows), menu.issue_summary_kb(rows))
+
+
+@router.callback_query(EmployeeCardsCb.filter())
+async def open_employee_cards(
+    query: CallbackQuery, callback_data: EmployeeCardsCb, session: AsyncSession
+) -> None:
+    found = await users.get_by_telegram_id(session, callback_data.telegram_id)
+    if found is None:
+        await show(query, views.NOT_FOUND, menu.back_to(Nav.CARDS))
+        return
+    issued = await cards.list_created_by(session, found)
+    total = await cards.count_created_by(session, found)
+    await show(query, views.employee_cards(found, issued, total), menu.back_to(Nav.CARDS))
+
+
+@router.callback_query(NavCb.filter(F.to == Nav.CARD_LOOKUP))
+async def card_lookup_start(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(FindCard.query)
+    await show(query, views.ASK_CARD_QUERY, menu.cancel_only())
+
+
+@router.message(StateFilter(FindCard.query), NotACommand)
+async def card_lookup_got_query(
+    message: Message, state: FSMContext, session: AsyncSession, settings: Settings
+) -> None:
+    await state.clear()
+    await _card_lookup_reply(message, session, settings, message.text or "")
+
+
+@router.message(StateFilter(EmployeeCards.target), NotACommand)
+async def employee_cards_got_target(
+    message: Message, state: FSMContext, session: AsyncSession
+) -> None:
+    await state.clear()
+    found = await users.resolve(session, message.text or "")
+    if found is None or not found.role.is_member:
+        await message.answer(views.NOT_A_MEMBER, reply_markup=menu.back_to(Nav.CARDS))
+        return
+    await _employee_cards_reply(message, session, found)
 
 
 # --------------------------------------------------------------------------
@@ -270,4 +350,41 @@ async def cmd_who(
     if found is None:
         await message.answer(views.NOT_FOUND)
         return
-    await message.answer(views.profile(found), reply_markup=menu.back_to(Nav.ADMIN))
+    issued = await cards.count_created_by(session, found)
+    await message.answer(views.profile(found, issued), reply_markup=menu.back_to(Nav.ADMIN))
+
+
+@router.message(Command("cards"))
+async def cmd_cards(
+    message: Message, command: CommandObject, session: AsyncSession, state: FSMContext
+) -> None:
+    """/cards <id|@employee> -- that employee's issued cards"""
+    await state.clear()
+    if not command.args:
+        await state.set_state(EmployeeCards.target)
+        await message.answer(views.ASK_TARGET_CARDS, reply_markup=menu.cancel_only())
+        return
+
+    found = await users.resolve(session, command.args)
+    if found is None or not found.role.is_member:
+        await message.answer(views.NOT_A_MEMBER)
+        return
+    await _employee_cards_reply(message, session, found)
+
+
+@router.message(Command("card"))
+async def cmd_card(
+    message: Message,
+    command: CommandObject,
+    session: AsyncSession,
+    state: FSMContext,
+    settings: Settings,
+) -> None:
+    """/card <bank number | name> -- one card, details plus the image"""
+    await state.clear()
+    if not command.args:
+        await state.set_state(FindCard.query)
+        await message.answer(views.ASK_CARD_QUERY, reply_markup=menu.cancel_only())
+        return
+
+    await _card_lookup_reply(message, session, settings, command.args)
