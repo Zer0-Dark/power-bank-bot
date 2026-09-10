@@ -155,6 +155,7 @@ ASK_BANK_NUMBER = (
 )
 ASK_CARD_USERNAME = "4/4 — أرسل <b>اسم المستخدم</b> الذي تريده على البطاقة."
 CARD_RENDERING = "⏳ جاري إصدار البطاقة..."
+CARD_HOME = "🪪 اضغط الزر بالأسفل لإصدار بطاقة."
 
 
 def card_caption(card: Card) -> str:

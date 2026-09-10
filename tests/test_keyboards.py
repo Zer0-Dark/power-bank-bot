@@ -40,6 +40,16 @@ def test_staff_see_the_admin_button(role: Role):
     assert NavCb(to=Nav.ADMIN).pack() in payloads(menu.main_menu(role))
 
 
+def test_plain_user_main_menu_is_cards_and_help_only():
+    found = set(payloads(menu.main_menu(Role.USER)))
+    assert found == {NavCb(to=Nav.CARD).pack(), NavCb(to=Nav.HELP).pack()}
+
+
+@pytest.mark.parametrize("role", [Role.ADMIN, Role.SUPER_ADMIN])
+def test_staff_see_the_balance_button(role: Role):
+    assert NavCb(to=Nav.BALANCE).pack() in payloads(menu.main_menu(role))
+
+
 def test_admin_menu_covers_every_admin_action():
     found = set(payloads(menu.admin_menu()))
     for destination in (
@@ -62,17 +72,25 @@ def test_every_screen_offers_a_way_back():
         menu.cancel_only(),
         menu.card_menu(),
         menu.card_type_choice(),
-        menu.card_issued_actions(),
+        menu.card_issued_actions(Role.USER),
+        menu.card_issued_actions(Role.ADMIN),
         menu.issue_summary_kb(rows),
         menu.issue_summary_kb([]),
     ):
         assert payloads(markup), "a screen with no exit strands the user"
 
 
-def test_card_issued_actions_lets_you_issue_again_and_view_the_list():
-    found = set(payloads(menu.card_issued_actions()))
+@pytest.mark.parametrize("role", [Role.ADMIN, Role.SUPER_ADMIN])
+def test_staff_can_issue_again_and_view_the_list(role: Role):
+    found = set(payloads(menu.card_issued_actions(role)))
     assert NavCb(to=Nav.CARD_NEW).pack() in found
     assert NavCb(to=Nav.CARD).pack() in found
+
+
+def test_plain_user_can_issue_again_but_gets_no_card_list():
+    found = set(payloads(menu.card_issued_actions(Role.USER)))
+    assert NavCb(to=Nav.CARD_NEW).pack() in found
+    assert NavCb(to=Nav.CARD).pack() not in found
 
 
 def test_issue_summary_rows_drill_into_an_employee():
@@ -142,7 +160,7 @@ def test_role_choice_offers_user_and_admin_only():
         menu.confirm_removal(9999999999999),
         menu.card_menu(),
         menu.card_type_choice(),
-        menu.card_issued_actions(),
+        menu.card_issued_actions(Role.SUPER_ADMIN),
         menu.issue_summary_kb([(_member(9999999999999, "x" * 20), 999)]),
     ],
 )

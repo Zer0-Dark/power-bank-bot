@@ -13,10 +13,11 @@ def _nav(text: str, to: Nav) -> InlineKeyboardButton:
 
 
 def main_menu(role: Role) -> InlineKeyboardMarkup:
-    """The home screen. Staff see an extra row; users never see it exists."""
+    """The home screen. Plain users only issue cards; staff see extra rows."""
     builder = InlineKeyboardBuilder()
     builder.row(_nav("🪪 البطاقات", Nav.CARD))
-    builder.row(_nav("💰 الرصيد", Nav.BALANCE))
+    if role.is_staff:
+        builder.row(_nav("💰 الرصيد", Nav.BALANCE))
     builder.row(_nav("❓ المساعدة", Nav.HELP))
     if role.is_staff:
         builder.row(_nav("🛠 لوحة الإدارة", Nav.ADMIN))
@@ -90,11 +91,15 @@ def card_type_choice() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def card_issued_actions() -> InlineKeyboardMarkup:
-    """Attached to a freshly issued card so the employee can keep going."""
+def card_issued_actions(role: Role) -> InlineKeyboardMarkup:
+    """Attached to a freshly issued card so the employee can keep going.
+
+    Only staff get a way into the issued-cards list; plain users just issue.
+    """
     builder = InlineKeyboardBuilder()
     builder.row(_nav("🪪 إصدار بطاقة أخرى", Nav.CARD_NEW))
-    builder.row(_nav("📋 بطاقاتي", Nav.CARD))
+    if role.is_staff:
+        builder.row(_nav("📋 بطاقاتي", Nav.CARD))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
     return builder.as_markup()
 

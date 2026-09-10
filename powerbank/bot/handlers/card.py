@@ -37,6 +37,12 @@ class NewCard(StatesGroup):
 
 @router.callback_query(NavCb.filter(F.to == Nav.CARD))
 async def open_card(query: CallbackQuery, session: AsyncSession, user: User) -> None:
+    # Plain users issue cards but never browse them -- not even their own.
+    # Checked here, not just by hiding buttons: a callback can be replayed.
+    if not user.role.is_staff:
+        await show(query, views.CARD_HOME, menu.card_menu())
+        return
+
     issued = await cards.list_created_by(session, user)
     total = await cards.count_created_by(session, user)
     await show(query, views.my_issued(issued, total), menu.card_menu())
@@ -113,5 +119,5 @@ async def got_username(
         card,
         settings,
         caption=views.card_caption(card),
-        keyboard=menu.card_issued_actions(),
+        keyboard=menu.card_issued_actions(user.role),
     )

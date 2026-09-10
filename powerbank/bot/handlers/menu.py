@@ -38,6 +38,11 @@ async def open_help(query: CallbackQuery, user: User) -> None:
 
 @router.callback_query(NavCb.filter(F.to == Nav.BALANCE))
 async def open_balance(query: CallbackQuery, user: User) -> None:
+    # Plain users only issue cards. The button is hidden from them; this stops
+    # a replayed callback.
+    if not user.role.is_staff:
+        await show(query, views.welcome(user), menu.main_menu(user.role))
+        return
     # Placeholder until the ledger lands in Phase 2.
     await show(query, views.BALANCE_SOON, menu.back_to(Nav.MAIN))
 
