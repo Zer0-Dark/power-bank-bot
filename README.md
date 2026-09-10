@@ -1,4 +1,4 @@
-# Power Bank Bot
+git # Power Bank Bot
 
 A Telegram bot for a virtual bank game — accounts, balances, transfers, and
 rendered card/receipt images.
