@@ -8,9 +8,10 @@ number is typed by the employee and is unique across every card.
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from powerbank.core.cards import DEFAULT_CARD_TYPE, CardType
 from powerbank.db.base import Base, IntPKMixin, TimestampMixin
 
 if TYPE_CHECKING:
@@ -44,6 +45,25 @@ class Card(IntPKMixin, TimestampMixin, Base):
     real_name: Mapped[str] = mapped_column(String(64), nullable=False)
     facebook_name: Mapped[str] = mapped_column(String(64), nullable=False)
     display_username: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # Which design was rendered. A CHECK-backed string, not a native ENUM --
+    # identical behaviour on SQLite and Postgres, no ENUM migration pain. See
+    # User.role for the same pattern and the reasoning behind each argument.
+    card_type: Mapped[CardType] = mapped_column(
+        Enum(
+            CardType,
+            native_enum=False,
+            length=16,
+            validate_strings=True,
+            create_constraint=True,
+            name="card_type_enum",
+            values_callable=lambda enum: [member.value for member in enum],
+        ),
+        default=DEFAULT_CARD_TYPE,
+        server_default=DEFAULT_CARD_TYPE.value,
+        nullable=False,
+        index=True,
+    )
 
     @property
     def formatted_number(self) -> str:

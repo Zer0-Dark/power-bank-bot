@@ -43,6 +43,30 @@ def test_full_chain_upgrades_from_empty(alembic_cfg):
     command.upgrade(cfg, "head")
     assert "created_by_id" in _columns(db, "cards")
     assert "user_id" not in _columns(db, "cards")
+    assert "card_type" in _columns(db, "cards")
+
+
+def test_card_type_backfills_existing_rows_as_diamond(alembic_cfg):
+    cfg, db = alembic_cfg
+    command.upgrade(cfg, CARD_REWORK)
+
+    con = sqlite3.connect(db)
+    con.execute("INSERT INTO users (id, telegram_id, is_banned, role) VALUES (1, 42, 0, 'user')")
+    con.execute(
+        "INSERT INTO cards (id, created_by_id, bank_number, real_name, facebook_name, "
+        "display_username) VALUES (1, 1, 76, 'x', 'x', 'x')"
+    )
+    con.commit()
+    con.close()
+
+    command.upgrade(cfg, "head")
+
+    con = sqlite3.connect(db)
+    try:
+        row = con.execute("SELECT card_type FROM cards WHERE id = 1").fetchone()
+    finally:
+        con.close()
+    assert row == ("diamond",)
 
 
 def test_card_rework_backfills_created_by_from_the_former_owner(alembic_cfg):

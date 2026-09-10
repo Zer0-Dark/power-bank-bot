@@ -1,8 +1,9 @@
-"""The account card: entering the four values and rendering the image.
+"""The account card: choosing a design, entering the four values, rendering it.
 
 Available to every member. A card is issued once and never edited -- each run of
-the flow inserts a new record tagged with the employee who ran it. The four
-values (real name, Facebook name, bank number, username) are all typed.
+the flow inserts a new record tagged with the employee who ran it. The flow
+first picks a tier (bronze .. diamond), then takes the four typed values (real
+name, Facebook name, bank number, username).
 """
 
 from aiogram import F, Router
@@ -12,9 +13,10 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from powerbank.bot import views
-from powerbank.bot.callbacks import Nav, NavCb
+from powerbank.bot.callbacks import CardTypeCb, Nav, NavCb
 from powerbank.bot.keyboards import menu
 from powerbank.bot.screens import send_card_image, show
+from powerbank.core.cards import DEFAULT_CARD_TYPE, CardType
 from powerbank.core.config import Settings
 from powerbank.db.models import User
 from powerbank.services import cards
@@ -26,6 +28,7 @@ NotACommand = ~F.text.startswith("/")
 
 
 class NewCard(StatesGroup):
+    card_type = State()
     real_name = State()
     facebook_name = State()
     bank_number = State()
@@ -41,6 +44,15 @@ async def open_card(query: CallbackQuery, session: AsyncSession, user: User) -> 
 
 @router.callback_query(NavCb.filter(F.to == Nav.CARD_NEW))
 async def start_form(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(NewCard.card_type)
+    await show(query, views.ASK_CARD_TYPE, menu.card_type_choice())
+
+
+@router.callback_query(NewCard.card_type, CardTypeCb.filter())
+async def got_card_type(
+    query: CallbackQuery, callback_data: CardTypeCb, state: FSMContext
+) -> None:
+    await state.update_data(card_type=callback_data.type.value)
     await state.set_state(NewCard.real_name)
     await show(query, views.ASK_REAL_NAME, menu.cancel_only())
 
@@ -89,6 +101,9 @@ async def got_username(
             facebook_name=data["facebook_name"],
             bank_number=data["bank_number"],
             display_username=value,
+            # Defensive: the flow always sets this, but a resumed/stale state
+            # from before tiers existed would not carry it.
+            card_type=CardType(data.get("card_type", DEFAULT_CARD_TYPE)),
         ),
     )
 

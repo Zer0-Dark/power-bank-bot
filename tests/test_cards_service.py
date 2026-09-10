@@ -134,14 +134,32 @@ async def test_duplicate_number_is_refused_by_the_database(session):
         await session.flush()
 
 
-async def test_render_payload_matches_the_layout_fields(session):
+async def test_render_payload_matches_every_layout(session):
     """Guards against a field being renamed in one place but not the other."""
+    from powerbank.core.cards import CardType
     from powerbank.render.cards import _layout
 
     emp = await employee(session)
     card = await issue(session, emp)
 
-    assert set(card.as_values()) == set(_layout("assets").fields)
+    for card_type in CardType:
+        assert set(card.as_values()) == set(_layout("assets", card_type).fields)
+
+
+async def test_issue_card_records_the_chosen_tier(session):
+    from powerbank.core.cards import CardType
+
+    emp = await employee(session)
+    card = await issue(session, emp, card_type=CardType.GOLD)
+    assert card.card_type is CardType.GOLD
+
+
+async def test_issue_card_defaults_to_diamond(session):
+    from powerbank.core.cards import CardType
+
+    emp = await employee(session)
+    card = await issue(session, emp)
+    assert card.card_type is CardType.DIAMOND
 
 
 # --- listing and counting ---

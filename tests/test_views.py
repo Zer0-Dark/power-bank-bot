@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from powerbank.bot import views
+from powerbank.core.cards import CardType
 from powerbank.core.roles import Role
 from powerbank.core.text import FSI, PDI
 from powerbank.db.models import Card, User
@@ -18,6 +19,7 @@ def card(**overrides) -> Card:
         "facebook_name": "Sajjad Adi",
         "bank_number": 76,
         "display_username": "MusaGRO",
+        "card_type": CardType.DIAMOND,
         "created_at": datetime(2026, 8, 30, 12, 0, tzinfo=UTC),
     }
     return Card(**(base | overrides))

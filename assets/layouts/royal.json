@@ -1,0 +1,23 @@
+{
+  "_note": "Royal (الملكي), landscape 3080x1993. Four black bars with gold chevron caps, stacked down the centre under their labels. Bar centres were measured by masking for neutral-dark pixels -- the bars -- against the warm gold artwork, which separates them cleanly where a plain luminance threshold does not: rows 584/934/1288/1641, all centred on x=1546.",
+
+  "template": "الملكي.png",
+
+  "font": "ReadexPro-Bold.ttf",
+
+  "color": [248, 248, 248],
+  "fill_note": "Black bars, so glyphs are a white->light-grey gradient with a thin dark-warm outline.",
+  "gradient": [[255, 255, 255], [210, 210, 210]],
+  "stroke_width": 5,
+  "stroke_color": [40, 30, 0],
+
+  "min_font_size": 40,
+  "output_width": 1540,
+
+  "fields": {
+    "real_name":     { "center": [1546, 584],  "max_width": 700, "font_size": 76 },
+    "facebook_name": { "center": [1546, 934],  "max_width": 700, "font_size": 76 },
+    "bank_number":   { "center": [1546, 1288], "max_width": 700, "font_size": 76 },
+    "username":      { "center": [1546, 1641], "max_width": 700, "font_size": 76 }
+  }
+}

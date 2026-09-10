@@ -1,0 +1,25 @@
+{
+  "_note": "Elite (النخبة), landscape 3080x1993. Two columns: real_name + facebook_name on the left, username + bank_number on the right, each in a dashed-edge dark bar below its baked-in label.",
+
+  "_measured": "Rows come from the bright dashed borders -- count bright/dark transitions per row and the bar's top and bottom edges spike: 645/841 and 1146/1342, so the centres are 742 and 1242. Columns come from each bar graphic's left-right symmetry axis (the x that best mirrors the bar onto itself), which is immune to the uneven background: 934 and 2190. Cross-correlating the left bar against the right half independently gives the same 1256px spacing. Note the columns are NOT mirrored about the card's centre line -- assuming that puts the right column ~70px too far left.",
+
+  "template": "نخبه.png",
+
+  "font": "ReadexPro-Bold.ttf",
+
+  "color": [245, 245, 245],
+  "fill_note": "Dark bars, so glyphs are a white->light-grey gradient with a thin dark outline.",
+  "gradient": [[255, 255, 255], [200, 200, 200]],
+  "stroke_width": 5,
+  "stroke_color": [10, 25, 15],
+
+  "min_font_size": 36,
+  "output_width": 1540,
+
+  "fields": {
+    "real_name":     { "center": [934, 742],   "max_width": 680, "font_size": 68 },
+    "facebook_name": { "center": [934, 1242],  "max_width": 680, "font_size": 68 },
+    "username":      { "center": [2190, 742],  "max_width": 680, "font_size": 68 },
+    "bank_number":   { "center": [2190, 1242], "max_width": 680, "font_size": 68 }
+  }
+}

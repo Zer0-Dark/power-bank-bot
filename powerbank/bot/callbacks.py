@@ -9,6 +9,7 @@ from enum import StrEnum
 
 from aiogram.filters.callback_data import CallbackData
 
+from powerbank.core.cards import CardType
 from powerbank.core.roles import Role
 
 
@@ -39,6 +40,12 @@ class RoleCb(CallbackData, prefix="role"):
     """Role chosen during the add-member flow."""
 
     role: Role
+
+
+class CardTypeCb(CallbackData, prefix="ctype"):
+    """Card design chosen at the start of the issuing flow."""
+
+    type: CardType
 
 
 class ConfirmCb(CallbackData, prefix="ok"):

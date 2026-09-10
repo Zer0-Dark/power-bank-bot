@@ -11,12 +11,17 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
+from powerbank.core.cards import CardType
 from powerbank.db.models import Card
 from powerbank.render.cards import render_card_sync
 from powerbank.render.engine import Layout, fit_text, load_font, render, require_shaping
 
 ASSETS = Path("assets")
-LAYOUT = Layout.load(ASSETS / "layouts" / "account_card.json", ASSETS)
+LAYOUTS = {
+    ct: Layout.load(ASSETS / "layouts" / f"{ct.value}.json", ASSETS) for ct in CardType
+}
+# Most tests below exercise one design; the diamond layout is the reference.
+LAYOUT = LAYOUTS[CardType.DIAMOND]
 
 ARABIC = "سجاد عدي الفهد"
 
@@ -27,6 +32,7 @@ def card(**overrides) -> Card:
         "facebook_name": ARABIC,
         "bank_number": 76,
         "display_username": "MusaGRO",
+        "card_type": CardType.DIAMOND,
     }
     return Card(**(base | overrides))
 
@@ -212,6 +218,50 @@ def test_layout_fields_are_inside_the_template():
 @pytest.mark.parametrize("value", ["MusaGRO", "١٢٣", "00000076", "أ ب ج"])
 def test_mixed_scripts_render_without_error(value):
     render(LAYOUT, {"username": value})
+
+
+# --- every tier -------------------------------------------------------------
+
+EXPECTED_FIELDS = {"real_name", "facebook_name", "bank_number", "username"}
+
+
+@pytest.mark.parametrize("card_type", list(CardType), ids=lambda c: c.value)
+def test_every_tier_has_a_loadable_layout_with_the_four_fields(card_type):
+    layout = LAYOUTS[card_type]
+    assert set(layout.fields) == EXPECTED_FIELDS
+    assert layout.template.exists(), f"{card_type.value} template missing"
+
+
+@pytest.mark.parametrize("card_type", list(CardType), ids=lambda c: c.value)
+def test_every_tier_field_sits_inside_its_template(card_type):
+    layout = LAYOUTS[card_type]
+    width, height = Image.open(layout.template).size
+    for name, field in layout.fields.items():
+        assert 0 < field.x < width, f"{card_type.value}/{name} x off-canvas"
+        assert 0 < field.y < height, f"{card_type.value}/{name} y off-canvas"
+        assert field.x + field.max_width // 2 <= width, f"{card_type.value}/{name} overflows right"
+
+
+@pytest.mark.parametrize("card_type", list(CardType), ids=lambda c: c.value)
+def test_every_tier_renders_a_png_and_shapes_arabic(card_type):
+    """A full render per design, plus the tofu check that shaping actually ran."""
+    layout = LAYOUTS[card_type]
+
+    image = Image.open(render_card_sync(card(card_type=card_type), ASSETS))
+    assert image.format == "PNG"
+    assert image.width == layout.output_width
+
+    real = Image.open(render(layout, {"real_name": ARABIC})).convert("L")
+    tofu = Image.open(render(layout, {"real_name": "ﺍ" * 6})).convert("L")
+    ratio = real.width / Image.open(layout.template).width
+    f = layout.fields["real_name"]
+    box = (
+        int((f.x - 150) * ratio),
+        int((f.y - 25) * ratio),
+        int((f.x + 150) * ratio),
+        int((f.y + 25) * ratio),
+    )
+    assert real.crop(box).tobytes() != tofu.crop(box).tobytes(), "Arabic did not shape"
 
 
 # --- no junk on disk -----------------------------------------------------

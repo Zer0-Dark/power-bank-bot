@@ -10,6 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.cards import DEFAULT_CARD_TYPE, CardType
 from powerbank.core.exceptions import UserFacingError
 from powerbank.core.roles import Role
 from powerbank.db.models import Card, User
@@ -30,6 +31,7 @@ class CardDetails:
     facebook_name: str
     bank_number: int
     display_username: str
+    card_type: CardType = DEFAULT_CARD_TYPE
 
 
 def clean_name(raw: str, label: str, limit: int = MAX_NAME_LENGTH) -> str:
@@ -82,6 +84,7 @@ async def issue_card(session: AsyncSession, employee: User, details: CardDetails
         facebook_name=details.facebook_name,
         bank_number=details.bank_number,
         display_username=details.display_username,
+        card_type=details.card_type,
     )
     session.add(card)
 

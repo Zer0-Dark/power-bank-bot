@@ -1,7 +1,7 @@
 {
   "_note": "Field centres were measured by diffing example_empty.png against example_filled.png. Coordinates are original-template pixels (3080x1993); the render is downscaled to output_width afterwards.",
 
-  "template": "account_card.png",
+  "template": "الماسي.png",
 
   "font_note": "`font` is the default face; each field may override it. To use the intended faces, drop YaModernPro.ttf / GodofThunder.ttf / Munro.ttf into assets/fonts/ and set the per-field `font` values below (real_name + facebook_name -> YaModernPro, bank_number -> Munro, username -> GodofThunder). Until then everything uses the bundled Readex Pro, which covers Arabic, Latin and digits.",
   "font": "ReadexPro-Bold.ttf",

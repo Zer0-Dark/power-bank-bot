@@ -6,8 +6,9 @@ exceeded, so the packed length is asserted rather than assumed.
 
 import pytest
 
-from powerbank.bot.callbacks import ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import CardTypeCb, ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
 from powerbank.bot.keyboards import menu
+from powerbank.core.cards import CardType
 from powerbank.core.roles import Role
 from powerbank.db.models import User
 
@@ -60,6 +61,7 @@ def test_every_screen_offers_a_way_back():
         menu.back_to(Nav.MAIN),
         menu.cancel_only(),
         menu.card_menu(),
+        menu.card_type_choice(),
         menu.card_issued_actions(),
         menu.issue_summary_kb(rows),
         menu.issue_summary_kb([]),
@@ -109,6 +111,19 @@ def test_employee_cards_payload_round_trips():
     assert EmployeeCardsCb.unpack(packed).telegram_id == 436677576
 
 
+def test_card_type_choice_offers_every_tier():
+    offered = {
+        CardTypeCb.unpack(p).type
+        for p in payloads(menu.card_type_choice())
+        if p.startswith("ctype:")
+    }
+    assert offered == set(CardType)
+
+
+def test_card_type_payload_round_trips():
+    assert CardTypeCb.unpack(CardTypeCb(type=CardType.ELITE).pack()).type is CardType.ELITE
+
+
 def test_role_choice_offers_user_and_admin_only():
     offered = {RoleCb.unpack(p).role for p in payloads(menu.role_choice()) if p.startswith("role:")}
     assert offered == {Role.USER, Role.ADMIN}
@@ -126,6 +141,7 @@ def test_role_choice_offers_user_and_admin_only():
         menu.cancel_only(),
         menu.confirm_removal(9999999999999),
         menu.card_menu(),
+        menu.card_type_choice(),
         menu.card_issued_actions(),
         menu.issue_summary_kb([(_member(9999999999999, "x" * 20), 999)]),
     ],

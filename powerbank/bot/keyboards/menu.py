@@ -3,7 +3,8 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from powerbank.bot.callbacks import ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import CardTypeCb, ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
+from powerbank.core.cards import CardType
 from powerbank.core.roles import Role
 
 
@@ -71,6 +72,21 @@ def card_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(_nav("🪪 إصدار بطاقة", Nav.CARD_NEW))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
+    return builder.as_markup()
+
+
+def card_type_choice() -> InlineKeyboardMarkup:
+    """Pick a design before entering the four values. Two tiers per row."""
+    builder = InlineKeyboardBuilder()
+    buttons = [
+        InlineKeyboardButton(
+            text=card_type.label, callback_data=CardTypeCb(type=card_type).pack()
+        )
+        for card_type in CardType
+    ]
+    for i in range(0, len(buttons), 2):
+        builder.row(*buttons[i : i + 2])
+    builder.row(_nav("✖️ إلغاء", Nav.CANCEL))
     return builder.as_markup()
 
 

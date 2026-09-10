@@ -145,6 +145,7 @@ BALANCE_SOON = "💰 الحسابات لم تُفتح بعد.\n\nقريباً ف
 
 # --- account card ---------------------------------------------------------
 
+ASK_CARD_TYPE = "اختر <b>نوع البطاقة</b>:"
 ASK_REAL_NAME = "1/4 — أرسل <b>الاسم الحقيقي</b>."
 ASK_FACEBOOK_NAME = "2/4 — أرسل <b>الاسم بالفيسبوك</b>."
 ASK_BANK_NUMBER = (
@@ -159,7 +160,7 @@ CARD_RENDERING = "⏳ جاري إصدار البطاقة..."
 def card_caption(card: Card) -> str:
     """Caption sent alongside the rendered image."""
     return (
-        f"🪪 <b>البطاقة</b>\n\n"
+        f"🪪 <b>البطاقة {card.card_type.label}</b>\n\n"
         f"الاسم الحقيقي: {_name(card.real_name)}\n"
         f"الاسم بالفيسبوك: {_name(card.facebook_name)}\n"
         f"الرقم البنكي: {code(card.formatted_number)}\n"
@@ -170,7 +171,7 @@ def card_caption(card: Card) -> str:
 def card_details(card: Card, issuer: User | None) -> str:
     """The full record of one card, for an admin lookup."""
     return (
-        f"🪪 <b>البطاقة</b>\n\n"
+        f"🪪 <b>البطاقة {card.card_type.label}</b>\n\n"
         f"الاسم الحقيقي: {_name(card.real_name)}\n"
         f"الاسم بالفيسبوك: {_name(card.facebook_name)}\n"
         f"الرقم البنكي: {code(card.formatted_number)}\n"

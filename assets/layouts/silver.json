@@ -1,0 +1,23 @@
+{
+  "_note": "Silver: Bronze / Silver / Gold share one PSD -- only the colour layers differ -- so these three layouts carry identical coordinates. Field centres are the dark value bars *below* each baked-in label, measured off the artwork (2121x3000). Nudge in pixels if a value sits high or low.",
+
+  "template": "الفضي.png",
+
+  "font": "ReadexPro-Bold.ttf",
+
+  "color": [245, 245, 245],
+  "fill_note": "Value bars are dark, so glyphs are a white->light-grey gradient with a thin dark outline. `color` is the fallback when `gradient` is removed.",
+  "gradient": [[255, 255, 255], [205, 205, 205]],
+  "stroke_width": 6,
+  "stroke_color": [25, 25, 25],
+
+  "min_font_size": 40,
+  "output_width": 1200,
+
+  "fields": {
+    "real_name":     { "center": [1063, 858],  "max_width": 880, "font_size": 84 },
+    "facebook_name": { "center": [1063, 1366], "max_width": 880, "font_size": 84 },
+    "bank_number":   { "center": [1063, 1875], "max_width": 880, "font_size": 84 },
+    "username":      { "center": [1063, 2406], "max_width": 880, "font_size": 84 }
+  }
+}

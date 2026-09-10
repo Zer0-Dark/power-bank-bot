@@ -1,7 +1,18 @@
+# Cards are rendered and uploaded entirely in memory -- nothing is ever written
+# to disk -- so the only thing that grows here is logs. Docker's default
+# json-file driver has no size cap, and with `restart: unless-stopped` that
+# silently fills the host over months. Both services cap it at 30MB.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: powerbank
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -19,6 +30,7 @@ services:
   bot:
     build: .
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     depends_on:
       postgres:
