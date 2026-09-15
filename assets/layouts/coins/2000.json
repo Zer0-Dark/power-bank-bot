@@ -1,0 +1,22 @@
+{
+  "_note": "2000 note: dark teal-blue serif serial digits, right after the static 'TT' label already baked into the template.",
+  "template": "coins/2000_sowike_empty.jpg",
+  "font": "PlayfairDisplay-Bold.ttf",
+  "color": [
+    33,
+    66,
+    97
+  ],
+  "min_font_size": 24,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        695,
+        1077
+      ],
+      "max_width": 669,
+      "font_size": 150
+    }
+  }
+}

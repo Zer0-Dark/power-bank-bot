@@ -3,8 +3,19 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from powerbank.bot.callbacks import CardTypeCb, ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import (
+    CardTypeCb,
+    CoinTypeCb,
+    ConfirmCb,
+    EmployeeCardsCb,
+    Nav,
+    NavCb,
+    PowerPassTypeCb,
+    RoleCb,
+)
 from powerbank.core.cards import CardType
+from powerbank.core.coins import CoinType
+from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
 
 
@@ -24,12 +35,16 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def admin_menu() -> InlineKeyboardMarkup:
+def admin_menu(role: Role) -> InlineKeyboardMarkup:
+    """Batch-minting power-pass codes is valuable enough to gate to super admins."""
     builder = InlineKeyboardBuilder()
     builder.row(_nav("👥 الأعضاء", Nav.MEMBERS), _nav("🚪 المحاولات", Nav.ATTEMPTS))
     builder.row(_nav("➕ إضافة", Nav.ADD), _nav("➖ إزالة", Nav.REMOVE))
     builder.row(_nav("🔍 بحث", Nav.WHO))
     builder.row(_nav("🪪 البطاقات", Nav.CARDS), _nav("🔎 بحث بطاقة", Nav.CARD_LOOKUP))
+    if role is Role.SUPER_ADMIN:
+        builder.row(_nav("🎫 باور باس", Nav.POWER_PASS))
+        builder.row(_nav("🪙 عملات", Nav.COINS))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
     return builder.as_markup()
 
@@ -101,6 +116,64 @@ def card_issued_actions(role: Role) -> InlineKeyboardMarkup:
     if role.is_staff:
         builder.row(_nav("📋 بطاقاتي", Nav.CARD))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
+    return builder.as_markup()
+
+
+def power_pass_menu() -> InlineKeyboardMarkup:
+    """The landing for "🎫 باور باس": mint a batch, or go back."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🎫 إصدار دفعة", Nav.POWER_PASS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def power_pass_type_choice() -> InlineKeyboardMarkup:
+    """Pick a design before typing the batch size. One per row -- labels are long."""
+    builder = InlineKeyboardBuilder()
+    for pp_type in PowerPassType:
+        builder.row(
+            InlineKeyboardButton(
+                text=pp_type.label, callback_data=PowerPassTypeCb(type=pp_type).pack()
+            )
+        )
+    builder.row(_nav("✖️ إلغاء", Nav.CANCEL))
+    return builder.as_markup()
+
+
+def power_pass_issued_actions() -> InlineKeyboardMarkup:
+    """Attached after a batch is delivered so the admin can keep going."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🎫 إصدار دفعة أخرى", Nav.POWER_PASS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def coins_menu() -> InlineKeyboardMarkup:
+    """The landing for "🪙 عملات": mint a batch, or go back."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🪙 إصدار دفعة", Nav.COINS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def coin_type_choice() -> InlineKeyboardMarkup:
+    """Pick a denomination before typing the batch size. One per row."""
+    builder = InlineKeyboardBuilder()
+    for coin_type in CoinType:
+        builder.row(
+            InlineKeyboardButton(
+                text=coin_type.label, callback_data=CoinTypeCb(type=coin_type).pack()
+            )
+        )
+    builder.row(_nav("✖️ إلغاء", Nav.CANCEL))
+    return builder.as_markup()
+
+
+def coins_issued_actions() -> InlineKeyboardMarkup:
+    """Attached after a batch is delivered so the admin can keep going."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🪙 إصدار دفعة أخرى", Nav.COINS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
     return builder.as_markup()
 
 

@@ -10,6 +10,8 @@ from enum import StrEnum
 from aiogram.filters.callback_data import CallbackData
 
 from powerbank.core.cards import CardType
+from powerbank.core.coins import CoinType
+from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
 
 
@@ -29,6 +31,10 @@ class Nav(StrEnum):
     WHO = "who"
     CARDS = "cards"  # admin: all-employees issue summary
     CARD_LOOKUP = "card_find"  # admin: single-card lookup
+    POWER_PASS = "power_pass"  # super admin: power-pass panel (per-type totals)
+    POWER_PASS_NEW = "power_pass_new"  # super admin: start the batch-issuing flow
+    COINS = "coins"  # super admin: coins panel (per-denomination totals)
+    COINS_NEW = "coins_new"  # super admin: start the batch-issuing flow
     CANCEL = "cancel"
 
 
@@ -63,3 +69,15 @@ class EmployeeCardsCb(CallbackData, prefix="ecards"):
     """Drill from the issue summary into one employee's issued cards."""
 
     telegram_id: int
+
+
+class PowerPassTypeCb(CallbackData, prefix="pptype"):
+    """Power-pass design chosen at the start of the batch-issuing flow."""
+
+    type: PowerPassType
+
+
+class CoinTypeCb(CallbackData, prefix="cointype"):
+    """Coin denomination chosen at the start of the batch-issuing flow."""
+
+    type: CoinType

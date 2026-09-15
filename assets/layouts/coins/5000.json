@@ -1,0 +1,22 @@
+{
+  "_note": "5000 note: dark teal-blue serif serial digits, right after the static 'fT' label already baked into the template.",
+  "template": "coins/5000_sowike_empty.jpg",
+  "font": "PlayfairDisplay-Bold.ttf",
+  "color": [
+    29,
+    60,
+    91
+  ],
+  "min_font_size": 24,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        650,
+        1077
+      ],
+      "max_width": 605,
+      "font_size": 150
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "_note": "500 note: black serial digits in a digital/7-segment style, right after the static 'FT' label already baked into the template.",
+  "template": "coins/500_sowike_empty.jpg",
+  "font": "DSEG7Classic-Bold.ttf",
+  "color": [
+    26,
+    26,
+    26
+  ],
+  "min_font_size": 24,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        793,
+        1056
+      ],
+      "max_width": 630,
+      "font_size": 150
+    }
+  }
+}

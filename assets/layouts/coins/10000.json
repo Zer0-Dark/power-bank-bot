@@ -1,0 +1,22 @@
+{
+  "_note": "10000 note: black digital/7-segment serial digits, right after the static 'TTS' label already baked into the template. Longer prefix than the others (7 digits instead of 6) so this code runs to 13 digits -- matches the sample exactly.",
+  "template": "coins/10000_sowike_empty.jpg",
+  "font": "DSEG7Classic-Bold.ttf",
+  "color": [
+    20,
+    20,
+    20
+  ],
+  "min_font_size": 24,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        718,
+        1083
+      ],
+      "max_width": 651,
+      "font_size": 150
+    }
+  }
+}

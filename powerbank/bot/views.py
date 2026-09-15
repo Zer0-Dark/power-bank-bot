@@ -10,9 +10,11 @@ the client; see `core/text.py`.
 
 from aiogram.utils.markdown import hbold
 
+from powerbank.core.coins import CoinType
+from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
 from powerbank.core.text import cmd, code, ltr
-from powerbank.db.models import Card, User
+from powerbank.db.models import Card, CoinCard, PowerPassCard, User
 
 BRAND = ltr("Power Bank")
 
@@ -212,6 +214,62 @@ def issue_summary(rows: list[tuple[User, int]]) -> str:
         return "لا يوجد أعضاء بعد."
     lines = [f"• {ltr(user.display)} — {ltr(count)} بطاقة" for user, count in rows]
     return f"{hbold('البطاقات الصادرة')}\n" + "\n".join(lines)
+
+
+# --- power-pass cards ------------------------------------------------------
+
+ASK_POWER_PASS_TYPE = "اختر <b>نوع الباور باس</b>:"
+ASK_POWER_PASS_COUNT = "كم عدد البطاقات التي تريد إصدارها؟\n\nأرسل رقماً من 1 إلى 100."
+POWER_PASS_RENDERING = "⏳ جاري إصدار الدفعة..."
+
+
+def power_pass_panel(last: dict[PowerPassType, str | None]) -> str:
+    lines = [
+        f"• {pp_type.label} — {ltr(last[pp_type])}"
+        if last.get(pp_type)
+        else f"• {pp_type.label} — لم يُصدر بعد"
+        for pp_type in PowerPassType
+    ]
+    return f"{hbold('🎫 باور باس')}\n\nآخر كود صادر لكل نوع:\n" + "\n".join(lines)
+
+
+def power_pass_batch_caption(card_type: PowerPassType, batch: list[PowerPassCard]) -> str:
+    """Caption sent with the first photo of a freshly minted batch."""
+    lines = [
+        f"🎫 {hbold(card_type.label)}",
+        f"العدد: {ltr(len(batch))}",
+        f"من {code(batch[0].code)}",
+        f"إلى {code(batch[-1].code)}",
+    ]
+    return "\n".join(lines)
+
+
+# --- coins -------------------------------------------------------------------
+
+ASK_COIN_TYPE = "اختر <b>فئة العملة</b>:"
+ASK_COIN_COUNT = "كم عدد العملات التي تريد إصدارها؟\n\nأرسل رقماً من 1 إلى 100."
+COIN_RENDERING = "⏳ جاري إصدار الدفعة..."
+
+
+def coins_panel(last: dict[CoinType, str | None]) -> str:
+    lines = [
+        f"• {coin_type.label} — {ltr(last[coin_type])}"
+        if last.get(coin_type)
+        else f"• {coin_type.label} — لم تُصدر بعد"
+        for coin_type in CoinType
+    ]
+    return f"{hbold('🪙 عملات')}\n\nآخر كود صادر لكل فئة:\n" + "\n".join(lines)
+
+
+def coin_batch_caption(coin_type: CoinType, batch: list[CoinCard]) -> str:
+    """Caption sent with the first photo of a freshly minted batch."""
+    lines = [
+        f"🪙 {hbold(coin_type.label)}",
+        f"العدد: {ltr(len(batch))}",
+        f"من {code(batch[0].code)}",
+        f"إلى {code(batch[-1].code)}",
+    ]
+    return "\n".join(lines)
 
 
 def _name(value: str) -> str:

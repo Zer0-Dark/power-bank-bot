@@ -6,9 +6,18 @@ exceeded, so the packed length is asserted rather than assumed.
 
 import pytest
 
-from powerbank.bot.callbacks import CardTypeCb, ConfirmCb, EmployeeCardsCb, Nav, NavCb, RoleCb
+from powerbank.bot.callbacks import (
+    CardTypeCb,
+    ConfirmCb,
+    EmployeeCardsCb,
+    Nav,
+    NavCb,
+    PowerPassTypeCb,
+    RoleCb,
+)
 from powerbank.bot.keyboards import menu
 from powerbank.core.cards import CardType
+from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
 from powerbank.db.models import User
 
@@ -51,7 +60,7 @@ def test_staff_see_the_balance_button(role: Role):
 
 
 def test_admin_menu_covers_every_admin_action():
-    found = set(payloads(menu.admin_menu()))
+    found = set(payloads(menu.admin_menu(Role.SUPER_ADMIN)))
     for destination in (
         Nav.MEMBERS,
         Nav.ATTEMPTS,
@@ -60,14 +69,23 @@ def test_admin_menu_covers_every_admin_action():
         Nav.WHO,
         Nav.CARDS,
         Nav.CARD_LOOKUP,
+        Nav.POWER_PASS,
     ):
         assert NavCb(to=destination).pack() in found
+
+
+def test_plain_admin_sees_no_power_pass_button():
+    assert NavCb(to=Nav.POWER_PASS).pack() not in payloads(menu.admin_menu(Role.ADMIN))
+
+
+def test_super_admin_sees_the_power_pass_button():
+    assert NavCb(to=Nav.POWER_PASS).pack() in payloads(menu.admin_menu(Role.SUPER_ADMIN))
 
 
 def test_every_screen_offers_a_way_back():
     rows = [(_member(), 3)]
     for markup in (
-        menu.admin_menu(),
+        menu.admin_menu(Role.SUPER_ADMIN),
         menu.back_to(Nav.MAIN),
         menu.cancel_only(),
         menu.card_menu(),
@@ -76,6 +94,9 @@ def test_every_screen_offers_a_way_back():
         menu.card_issued_actions(Role.ADMIN),
         menu.issue_summary_kb(rows),
         menu.issue_summary_kb([]),
+        menu.power_pass_menu(),
+        menu.power_pass_type_choice(),
+        menu.power_pass_issued_actions(),
     ):
         assert payloads(markup), "a screen with no exit strands the user"
 
@@ -147,6 +168,20 @@ def test_role_choice_offers_user_and_admin_only():
     assert offered == {Role.USER, Role.ADMIN}
 
 
+def test_power_pass_type_choice_offers_every_type():
+    offered = {
+        PowerPassTypeCb.unpack(p).type
+        for p in payloads(menu.power_pass_type_choice())
+        if p.startswith("pptype:")
+    }
+    assert offered == set(PowerPassType)
+
+
+def test_power_pass_type_payload_round_trips():
+    packed = PowerPassTypeCb(type=PowerPassType.SILVER_72).pack()
+    assert PowerPassTypeCb.unpack(packed).type is PowerPassType.SILVER_72
+
+
 # --- Telegram's hard limits ---
 
 
@@ -154,7 +189,7 @@ def test_role_choice_offers_user_and_admin_only():
     "markup",
     [
         menu.main_menu(Role.SUPER_ADMIN),
-        menu.admin_menu(),
+        menu.admin_menu(Role.SUPER_ADMIN),
         menu.role_choice(),
         menu.cancel_only(),
         menu.confirm_removal(9999999999999),
@@ -162,6 +197,9 @@ def test_role_choice_offers_user_and_admin_only():
         menu.card_type_choice(),
         menu.card_issued_actions(Role.SUPER_ADMIN),
         menu.issue_summary_kb([(_member(9999999999999, "x" * 20), 999)]),
+        menu.power_pass_menu(),
+        menu.power_pass_type_choice(),
+        menu.power_pass_issued_actions(),
     ],
 )
 def test_payloads_fit_telegrams_64_byte_limit(markup):
@@ -170,7 +208,7 @@ def test_payloads_fit_telegrams_64_byte_limit(markup):
 
 
 def test_every_button_has_a_label_and_payload():
-    for markup in (menu.main_menu(Role.SUPER_ADMIN), menu.admin_menu()):
+    for markup in (menu.main_menu(Role.SUPER_ADMIN), menu.admin_menu(Role.SUPER_ADMIN)):
         for button in all_buttons(markup):
             assert button.text.strip()
             assert button.callback_data

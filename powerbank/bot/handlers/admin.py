@@ -81,9 +81,9 @@ async def _resolve_target(session: AsyncSession, query: str) -> int:
 
 
 @router.callback_query(NavCb.filter(F.to == Nav.ADMIN))
-async def open_panel(query: CallbackQuery, state: FSMContext) -> None:
+async def open_panel(query: CallbackQuery, state: FSMContext, user: User) -> None:
     await state.clear()
-    await show(query, views.admin_panel(), menu.admin_menu())
+    await show(query, views.admin_panel(), menu.admin_menu(user.role))
 
 
 @router.callback_query(NavCb.filter(F.to == Nav.MEMBERS))

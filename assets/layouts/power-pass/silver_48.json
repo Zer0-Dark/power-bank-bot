@@ -1,0 +1,41 @@
+{
+  "_note": "All seven power-pass designs share one PSD, so this bar position is identical across every layout file -- only the template and _note differ.",
+  "template": "power-pass/زيارة_فضي_48.png",
+  "font": "Munro-2LYe.ttf",
+  "color": [
+    245,
+    245,
+    245
+  ],
+  "fill_note": "Value bar is dark, so the code is a white->light-grey gradient with a thin dark outline, matching the account-card tiers.",
+  "gradient": [
+    [
+      255,
+      255,
+      255
+    ],
+    [
+      205,
+      205,
+      205
+    ]
+  ],
+  "stroke_width": 4,
+  "stroke_color": [
+    25,
+    25,
+    25
+  ],
+  "min_font_size": 28,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        1480,
+        1585
+      ],
+      "max_width": 1050,
+      "font_size": 160
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "_note": "1000 note: dark teal-blue serif serial digits, right after the static 'TH' label already baked into the template.",
+  "template": "coins/1000_sowike_empty.jpg",
+  "font": "PlayfairDisplay-Bold.ttf",
+  "color": [
+    32,
+    65,
+    95
+  ],
+  "min_font_size": 24,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        748,
+        1105
+      ],
+      "max_width": 663,
+      "font_size": 150
+    }
+  }
+}

@@ -4,6 +4,12 @@ A command sends a new message; a button edits the one already on screen. Both
 go through `show()` so handlers never care which triggered them.
 """
 
+import asyncio
+from collections.abc import Awaitable, Callable
+from io import BytesIO
+from pathlib import Path
+from typing import Protocol
+
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
     BufferedInputFile,
@@ -14,6 +20,10 @@ from aiogram.types import (
 
 from powerbank.core.config import Settings
 from powerbank.render.cards import render_card
+
+
+class _HasCode(Protocol):
+    code: str
 
 
 async def show(
@@ -67,3 +77,37 @@ async def send_card_image(
         caption=caption,
         reply_markup=keyboard,
     )
+
+
+async def send_code_card_batch(
+    event: Message | CallbackQuery,
+    batch: list[_HasCode],
+    render: Callable[[_HasCode, Path], Awaitable[BytesIO]],
+    assets_dir: Path,
+    *,
+    caption: str | None = None,
+    keyboard: InlineKeyboardMarkup | None = None,
+) -> None:
+    """Render a batch to PNGs and deliver each as its own photo message.
+
+    Shared by power-pass and coins: both mint owner-less, code-only cards
+    from a batch, differing only in how a single item renders. One message
+    per card -- not a media-group album -- so each code is fully visible and
+    legible on its own, not shrunk into an album thumbnail grid.
+    """
+    message = event if isinstance(event, Message) else event.message
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+
+    if caption:
+        await message.answer(caption)
+
+    buffers = await asyncio.gather(*(render(card, assets_dir) for card in batch))
+    for card, buf in zip(batch, buffers, strict=True):
+        await message.answer_photo(
+            BufferedInputFile(buf.getvalue(), filename=f"{card.code}.png"),
+            caption=card.code,
+        )
+
+    if keyboard is not None:
+        await message.answer("✅ تم", reply_markup=keyboard)

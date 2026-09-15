@@ -53,8 +53,12 @@ def run_migrations_offline() -> None:
 
 
 async def run_migrations_online() -> None:
+    # `.begin()`, not `.connect()`: SQLAlchemy 2.0 connections autobegin but
+    # never autocommit, so a plain `.connect()` here silently rolls every
+    # migration back on close. Postgres's transactional DDL makes that
+    # obvious; SQLite masked it, since its DDL effectively autocommits.
     engine = create_async_engine(DATABASE_URL, poolclass=None)
-    async with engine.connect() as connection:
+    async with engine.begin() as connection:
         await connection.run_sync(lambda c: (_configure(c), context.run_migrations()))
     await engine.dispose()
 
