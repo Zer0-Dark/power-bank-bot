@@ -31,7 +31,7 @@ router.callback_query.filter(IsSuperAdmin)
 NotACommand = ~F.text.startswith("/")
 
 
-class NewBatch(StatesGroup):
+class NewPowerPassBatch(StatesGroup):
     card_type = State()
     count = State()
 
@@ -44,20 +44,20 @@ async def open_panel(query: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(NavCb.filter(F.to == Nav.POWER_PASS_NEW))
 async def start_batch(query: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(NewBatch.card_type)
+    await state.set_state(NewPowerPassBatch.card_type)
     await show(query, views.ASK_POWER_PASS_TYPE, menu.power_pass_type_choice())
 
 
-@router.callback_query(NewBatch.card_type, PowerPassTypeCb.filter())
+@router.callback_query(NewPowerPassBatch.card_type, PowerPassTypeCb.filter())
 async def got_card_type(
     query: CallbackQuery, callback_data: PowerPassTypeCb, state: FSMContext
 ) -> None:
     await state.update_data(card_type=callback_data.type.value)
-    await state.set_state(NewBatch.count)
+    await state.set_state(NewPowerPassBatch.count)
     await show(query, views.ASK_POWER_PASS_COUNT, menu.cancel_only())
 
 
-@router.message(NewBatch.count, NotACommand)
+@router.message(NewPowerPassBatch.count, NotACommand)
 async def got_count(
     message: Message,
     state: FSMContext,

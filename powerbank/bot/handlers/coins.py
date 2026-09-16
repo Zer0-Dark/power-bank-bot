@@ -32,7 +32,7 @@ router.callback_query.filter(IsSuperAdmin)
 NotACommand = ~F.text.startswith("/")
 
 
-class NewBatch(StatesGroup):
+class NewCoinBatch(StatesGroup):
     coin_type = State()
     count = State()
 
@@ -45,20 +45,20 @@ async def open_panel(query: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(NavCb.filter(F.to == Nav.COINS_NEW))
 async def start_batch(query: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(NewBatch.coin_type)
+    await state.set_state(NewCoinBatch.coin_type)
     await show(query, views.ASK_COIN_TYPE, menu.coin_type_choice())
 
 
-@router.callback_query(NewBatch.coin_type, CoinTypeCb.filter())
+@router.callback_query(NewCoinBatch.coin_type, CoinTypeCb.filter())
 async def got_coin_type(
     query: CallbackQuery, callback_data: CoinTypeCb, state: FSMContext
 ) -> None:
     await state.update_data(coin_type=callback_data.type.value)
-    await state.set_state(NewBatch.count)
+    await state.set_state(NewCoinBatch.count)
     await show(query, views.ASK_COIN_COUNT, menu.cancel_only())
 
 
-@router.message(NewBatch.count, NotACommand)
+@router.message(NewCoinBatch.count, NotACommand)
 async def got_count(
     message: Message,
     state: FSMContext,
