@@ -1,22 +1,23 @@
 {
-  "_note": "1000 note: dark teal-blue serif serial digits, right after the static 'TH' label already baked into the template.",
+  "_note": "1000 note: Munro pixel serial digits, left-aligned right after the static 'TH' label baked into the template and vertically centred on it. 'center' is the left-middle point here (anchor 'lm'), so codes of any length start in the same spot.",
   "template": "coins/1000_sowike_empty.jpg",
-  "font": "PlayfairDisplay-Bold.ttf",
+  "font": "Munro-2LYe.ttf",
   "color": [
     32,
     65,
     95
   ],
-  "min_font_size": 24,
+  "min_font_size": 40,
   "output_width": 1200,
   "fields": {
     "code": {
       "center": [
-        748,
-        1105
+        436,
+        1100
       ],
-      "max_width": 663,
-      "font_size": 150
+      "anchor": "lm",
+      "max_width": 620,
+      "font_size": 104
     }
   }
 }

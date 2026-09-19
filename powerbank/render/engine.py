@@ -53,6 +53,10 @@ class Field:
     `font` overrides the layout's default face for this field only -- the card
     mixes an Arabic display face for the names, a Latin one for the username and
     a numeric one for the account number, so no single file covers every box.
+
+    `anchor` is a Pillow text anchor for the point: the default ``"mm"`` centres
+    the value in its bar, while ``"lm"`` pins its left edge -- for a value that
+    must start right after a label baked into the art, whatever its length.
     """
 
     x: int
@@ -60,6 +64,7 @@ class Field:
     max_width: int
     font_size: int
     font: str | None = None
+    anchor: str = "mm"
 
     @classmethod
     def from_dict(cls, raw: dict) -> Field:
@@ -69,6 +74,7 @@ class Field:
             max_width=raw["max_width"],
             font_size=raw["font_size"],
             font=raw.get("font"),
+            anchor=raw.get("anchor", "mm"),
         )
 
 
@@ -179,6 +185,7 @@ def _draw_value(
     text: str,
     font: ImageFont.FreeTypeFont,
     layout: Layout,
+    anchor: str = "mm",
 ) -> None:
     """One value: a white outline, then a black->grey gradient poured into the glyphs.
 
@@ -192,16 +199,16 @@ def _draw_value(
             text,
             font=font,
             fill=layout.stroke_color,
-            anchor="mm",
+            anchor=anchor,
             stroke_width=layout.stroke_width,
             stroke_fill=layout.stroke_color,
         )
 
     if layout.gradient is None:
-        draw.text(xy, text, font=font, fill=layout.color, anchor="mm")
+        draw.text(xy, text, font=font, fill=layout.color, anchor=anchor)
         return
 
-    left, top, right, bottom = draw.textbbox(xy, text, font=font, anchor="mm")
+    left, top, right, bottom = draw.textbbox(xy, text, font=font, anchor=anchor)
     left, top = max(int(left), 0), max(int(top), 0)
     right = min(int(right) + 1, image.width)
     bottom = min(int(bottom) + 1, image.height)
@@ -210,7 +217,7 @@ def _draw_value(
 
     box_size = (right - left, bottom - top)
     mask = Image.new("L", box_size, 0)
-    ImageDraw.Draw(mask).text((xy[0] - left, xy[1] - top), text, font=font, fill=255, anchor="mm")
+    ImageDraw.Draw(mask).text((xy[0] - left, xy[1] - top), text, font=font, fill=255, anchor=anchor)
     ramp = _linear_gradient(box_size, layout.gradient[0], layout.gradient[1])
     image.paste(ramp, (left, top), mask)
 
@@ -233,7 +240,7 @@ def render(layout: Layout, values: dict[str, str]) -> BytesIO:
         )
         # "mm" anchors on the middle of the glyph box in both axes, so a value
         # stays centred in its bar regardless of ascenders or descenders.
-        _draw_value(image, draw, (field.x, field.y), text, font, layout)
+        _draw_value(image, draw, (field.x, field.y), text, font, layout, field.anchor)
 
     # Text is drawn at full template resolution and downscaled afterwards, so
     # glyph edges stay smooth. Telegram re-compresses photos anyway, so sending

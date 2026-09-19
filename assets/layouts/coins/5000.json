@@ -1,22 +1,23 @@
 {
-  "_note": "5000 note: dark teal-blue serif serial digits, right after the static 'fT' label already baked into the template.",
+  "_note": "5000 note: Munro pixel serial digits, left-aligned right after the static 'fT' label baked into the template and vertically centred on it. 'center' is the left-middle point here (anchor 'lm'), so codes of any length start in the same spot.",
   "template": "coins/5000_sowike_empty.jpg",
-  "font": "PlayfairDisplay-Bold.ttf",
+  "font": "Munro-2LYe.ttf",
   "color": [
     29,
     60,
     91
   ],
-  "min_font_size": 24,
+  "min_font_size": 40,
   "output_width": 1200,
   "fields": {
     "code": {
       "center": [
-        650,
-        1077
+        362,
+        1085
       ],
-      "max_width": 605,
-      "font_size": 150
+      "anchor": "lm",
+      "max_width": 620,
+      "font_size": 104
     }
   }
 }

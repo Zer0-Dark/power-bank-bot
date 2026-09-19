@@ -1,22 +1,23 @@
 {
-  "_note": "2000 note: dark teal-blue serif serial digits, right after the static 'TT' label already baked into the template.",
+  "_note": "2000 note: Munro pixel serial digits, left-aligned right after the static 'TT' label baked into the template and vertically centred on it. 'center' is the left-middle point here (anchor 'lm'), so codes of any length start in the same spot.",
   "template": "coins/2000_sowike_empty.jpg",
-  "font": "PlayfairDisplay-Bold.ttf",
+  "font": "Munro-2LYe.ttf",
   "color": [
     33,
     66,
     97
   ],
-  "min_font_size": 24,
+  "min_font_size": 40,
   "output_width": 1200,
   "fields": {
     "code": {
       "center": [
-        695,
-        1077
+        386,
+        1080
       ],
-      "max_width": 669,
-      "font_size": 150
+      "anchor": "lm",
+      "max_width": 620,
+      "font_size": 104
     }
   }
 }
