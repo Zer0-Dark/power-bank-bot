@@ -13,8 +13,9 @@ from aiogram.utils.markdown import hbold
 from powerbank.core.coins import CoinType
 from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
+from powerbank.core.store_cards import StoreCardType
 from powerbank.core.text import cmd, code, ltr
-from powerbank.db.models import Card, CoinCard, PowerPassCard, User
+from powerbank.db.models import Card, CoinCard, PowerPassCard, StoreCard, User
 
 BRAND = ltr("Power Bank")
 
@@ -265,6 +266,34 @@ def coin_batch_caption(coin_type: CoinType, batch: list[CoinCard]) -> str:
     """Caption sent with the first photo of a freshly minted batch."""
     lines = [
         f"🪙 {hbold(coin_type.label)}",
+        f"العدد: {ltr(len(batch))}",
+        f"من {code(batch[0].code)}",
+        f"إلى {code(batch[-1].code)}",
+    ]
+    return "\n".join(lines)
+
+
+# --- store cards -------------------------------------------------------------
+
+ASK_STORE_CARD_TYPE = "اختر <b>نوع بطاقة المتجر</b>:"
+ASK_STORE_CARD_COUNT = "كم عدد البطاقات التي تريد إصدارها؟\n\nأرسل رقماً من 1 إلى 100."
+STORE_CARD_RENDERING = "⏳ جاري إصدار الدفعة..."
+
+
+def store_cards_panel(last: dict[StoreCardType, str | None]) -> str:
+    lines = [
+        f"• {card_type.label} — {ltr(last[card_type])}"
+        if last.get(card_type)
+        else f"• {card_type.label} — لم تُصدر بعد"
+        for card_type in StoreCardType
+    ]
+    return f"{hbold('🛒 بطاقات المتجر')}\n\nآخر كود صادر لكل نوع:\n" + "\n".join(lines)
+
+
+def store_card_batch_caption(card_type: StoreCardType, batch: list[StoreCard]) -> str:
+    """Caption sent with the first photo of a freshly minted batch."""
+    lines = [
+        f"🛒 {hbold(card_type.label)}",
         f"العدد: {ltr(len(batch))}",
         f"من {code(batch[0].code)}",
         f"إلى {code(batch[-1].code)}",

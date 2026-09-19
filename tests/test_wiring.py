@@ -53,6 +53,7 @@ def test_feature_routers_are_attached(dispatcher):
         "admin",
         "power_pass",
         "coins",
+        "store_cards",
         "errors",
     }
 

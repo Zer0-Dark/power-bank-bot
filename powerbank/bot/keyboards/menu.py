@@ -12,11 +12,13 @@ from powerbank.bot.callbacks import (
     NavCb,
     PowerPassTypeCb,
     RoleCb,
+    StoreCardTypeCb,
 )
 from powerbank.core.cards import CardType
 from powerbank.core.coins import CoinType
 from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
+from powerbank.core.store_cards import StoreCardType
 
 
 def _nav(text: str, to: Nav) -> InlineKeyboardButton:
@@ -45,6 +47,7 @@ def admin_menu(role: Role) -> InlineKeyboardMarkup:
     if role is Role.SUPER_ADMIN:
         builder.row(_nav("🎫 باور باس", Nav.POWER_PASS))
         builder.row(_nav("🪙 عملات", Nav.COINS))
+        builder.row(_nav("🛒 بطاقات المتجر", Nav.STORE_CARDS))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
     return builder.as_markup()
 
@@ -173,6 +176,35 @@ def coins_issued_actions() -> InlineKeyboardMarkup:
     """Attached after a batch is delivered so the admin can keep going."""
     builder = InlineKeyboardBuilder()
     builder.row(_nav("🪙 إصدار دفعة أخرى", Nav.COINS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def store_cards_menu() -> InlineKeyboardMarkup:
+    """The landing for "🛒 بطاقات المتجر": mint a batch, or go back."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🛒 إصدار دفعة", Nav.STORE_CARDS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def store_card_type_choice() -> InlineKeyboardMarkup:
+    """Pick a store card type before typing the batch size. One per row."""
+    builder = InlineKeyboardBuilder()
+    for card_type in StoreCardType:
+        builder.row(
+            InlineKeyboardButton(
+                text=card_type.label, callback_data=StoreCardTypeCb(type=card_type).pack()
+            )
+        )
+    builder.row(_nav("✖️ إلغاء", Nav.CANCEL))
+    return builder.as_markup()
+
+
+def store_cards_issued_actions() -> InlineKeyboardMarkup:
+    """Attached after a batch is delivered so the admin can keep going."""
+    builder = InlineKeyboardBuilder()
+    builder.row(_nav("🛒 إصدار دفعة أخرى", Nav.STORE_CARDS_NEW))
     builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
     return builder.as_markup()
 

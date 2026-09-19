@@ -1,0 +1,23 @@
+{
+  "_note": "Store card -- join card during the ranking period (grey bar). White Munro code, left-aligned at the start of the code bar (anchor 'lm', so 'center' is the left-middle point) to match the samples.",
+  "template": "store-cards/join_ranked_empty.jpg",
+  "font": "Munro-2LYe.ttf",
+  "color": [
+    245,
+    245,
+    245
+  ],
+  "min_font_size": 40,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        1230,
+        1757
+      ],
+      "anchor": "lm",
+      "max_width": 1410,
+      "font_size": 184
+    }
+  }
+}

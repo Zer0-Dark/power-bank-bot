@@ -1,4 +1,4 @@
-"""Batch-size validation shared by every mint-N-at-once flow (power-pass, coins)."""
+"""Batch-size validation shared by every mint-N-at-once flow (power-pass, coins, store cards)."""
 
 from powerbank.core.exceptions import UserFacingError
 

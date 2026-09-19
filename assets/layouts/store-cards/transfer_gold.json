@@ -1,0 +1,23 @@
+{
+  "_note": "Store card -- gold transfer card, closing period (yellow). White Munro code, left-aligned at the start of the code bar (anchor 'lm', so 'center' is the left-middle point) to match the samples.",
+  "template": "store-cards/transfer_gold_empty.jpg",
+  "font": "Munro-2LYe.ttf",
+  "color": [
+    245,
+    245,
+    245
+  ],
+  "min_font_size": 40,
+  "output_width": 1200,
+  "fields": {
+    "code": {
+      "center": [
+        1166,
+        1610
+      ],
+      "anchor": "lm",
+      "max_width": 1230,
+      "font_size": 155
+    }
+  }
+}

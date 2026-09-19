@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from powerbank.db.models.card import Card
     from powerbank.db.models.coin import CoinCard
     from powerbank.db.models.power_pass import PowerPassCard
+    from powerbank.db.models.store_card import StoreCard
 
 
 class User(IntPKMixin, TimestampMixin, Base):
@@ -80,6 +81,13 @@ class User(IntPKMixin, TimestampMixin, Base):
     issued_coin_cards: Mapped[list["CoinCard"]] = relationship(
         back_populates="created_by",
         order_by="CoinCard.created_at.desc()",
+        passive_deletes=True,
+    )
+
+    # Same audit-record reasoning as `issued_cards`, for store-card batches.
+    issued_store_cards: Mapped[list["StoreCard"]] = relationship(
+        back_populates="created_by",
+        order_by="StoreCard.created_at.desc()",
         passive_deletes=True,
     )
 

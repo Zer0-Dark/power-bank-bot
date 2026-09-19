@@ -13,6 +13,7 @@ from powerbank.core.cards import CardType
 from powerbank.core.coins import CoinType
 from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
+from powerbank.core.store_cards import StoreCardType
 
 
 class Nav(StrEnum):
@@ -35,6 +36,8 @@ class Nav(StrEnum):
     POWER_PASS_NEW = "power_pass_new"  # super admin: start the batch-issuing flow
     COINS = "coins"  # super admin: coins panel (per-denomination totals)
     COINS_NEW = "coins_new"  # super admin: start the batch-issuing flow
+    STORE_CARDS = "store_cards"  # super admin: store-cards panel (per-type last code)
+    STORE_CARDS_NEW = "store_cards_new"  # super admin: start the batch-issuing flow
     CANCEL = "cancel"
 
 
@@ -81,3 +84,9 @@ class CoinTypeCb(CallbackData, prefix="cointype"):
     """Coin denomination chosen at the start of the batch-issuing flow."""
 
     type: CoinType
+
+
+class StoreCardTypeCb(CallbackData, prefix="sctype"):
+    """Store card type chosen at the start of the batch-issuing flow."""
+
+    type: StoreCardType

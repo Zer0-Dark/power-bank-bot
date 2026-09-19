@@ -90,7 +90,7 @@ async def send_code_card_batch(
 ) -> None:
     """Render a batch to PNGs and deliver each as its own photo message.
 
-    Shared by power-pass and coins: both mint owner-less, code-only cards
+    Shared by power-pass, coins and store cards: all mint owner-less, code-only cards
     from a batch, differing only in how a single item renders. One message
     per card -- not a media-group album -- so each code is fully visible and
     legible on its own, not shrunk into an album thumbnail grid.
