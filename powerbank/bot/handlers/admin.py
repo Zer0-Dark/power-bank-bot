@@ -21,11 +21,12 @@ from powerbank.bot.commands import sync_for_user
 from powerbank.bot.filters import IsStaff
 from powerbank.bot.keyboards import menu
 from powerbank.bot.screens import send_card_image, show
+from powerbank.core.audit import AuditAction
 from powerbank.core.config import Settings
 from powerbank.core.exceptions import UserFacingError
 from powerbank.core.roles import Role
 from powerbank.db.models import User
-from powerbank.services import access, cards, users
+from powerbank.services import access, audit, cards, users
 
 router = Router(name="admin")
 router.message.filter(IsStaff)
@@ -218,9 +219,18 @@ async def _employee_cards_reply(message: Message, session: AsyncSession, found: 
 
 
 async def _card_lookup_reply(
-    message: Message, session: AsyncSession, settings: Settings, query: str
+    message: Message, session: AsyncSession, settings: Settings, user: User, query: str
 ) -> None:
     card = await cards.find_card(session, query)
+    # Looking a card up shows a member's personal details, so it is logged
+    # whether or not anything matched.
+    audit.record(
+        session,
+        AuditAction.CARD_VIEWED,
+        user,
+        query=query.strip(),
+        bank_number=card.formatted_number if card else None,
+    )
     if card is None:
         await message.answer(views.CARD_NOT_FOUND, reply_markup=menu.back_to(Nav.ADMIN))
         return
@@ -256,10 +266,10 @@ async def card_lookup_start(query: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(StateFilter(FindCard.query), NotACommand)
 async def card_lookup_got_query(
-    message: Message, state: FSMContext, session: AsyncSession, settings: Settings
+    message: Message, state: FSMContext, session: AsyncSession, settings: Settings, user: User
 ) -> None:
     await state.clear()
-    await _card_lookup_reply(message, session, settings, message.text or "")
+    await _card_lookup_reply(message, session, settings, user, message.text or "")
 
 
 @router.message(StateFilter(EmployeeCards.target), NotACommand)
@@ -379,6 +389,7 @@ async def cmd_card(
     session: AsyncSession,
     state: FSMContext,
     settings: Settings,
+    user: User,
 ) -> None:
     """/card <bank number | name> -- one card, details plus the image"""
     await state.clear()
@@ -387,4 +398,4 @@ async def cmd_card(
         await message.answer(views.ASK_CARD_QUERY, reply_markup=menu.cancel_only())
         return
 
-    await _card_lookup_reply(message, session, settings, command.args)
+    await _card_lookup_reply(message, session, settings, user, command.args)

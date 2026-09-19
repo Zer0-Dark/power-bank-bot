@@ -11,9 +11,11 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.audit import AuditAction
 from powerbank.core.exceptions import PermissionDenied
 from powerbank.core.roles import Role, can_grant, can_revoke
 from powerbank.db.models import User
+from powerbank.services import audit
 from powerbank.services.users import get_by_telegram_id
 
 
@@ -69,6 +71,18 @@ async def grant_role(
     target.denied_attempts = 0
     target.last_denied_at = None
 
+    if previous.is_member:
+        audit.record(
+            session,
+            AuditAction.ROLE_CHANGED,
+            actor,
+            target=target,
+            role=new_role.value,
+            previous_role=previous.value,
+        )
+    else:
+        audit.record(session, AuditAction.MEMBER_ADDED, actor, target=target, role=new_role.value)
+
     await session.flush()
 
     return GrantResult(user=target, previous_role=previous)
@@ -85,9 +99,13 @@ async def revoke_access(session: AsyncSession, actor: User, telegram_id: int) ->
             raise PermissionDenied("لا يمكنك سحب صلاحيتك بنفسك.")
         raise PermissionDenied(f"لا يمكنك إزالة {target.role.label}.")
 
+    previous = target.role
     target.role = Role.NONE
     target.granted_by_id = actor.id
     target.role_granted_at = datetime.now(UTC)
+    audit.record(
+        session, AuditAction.MEMBER_REMOVED, actor, target=target, previous_role=previous.value
+    )
     await session.flush()
     return target
 
@@ -111,5 +129,8 @@ async def sync_super_admins(session: AsyncSession, telegram_ids: list[int]) -> l
             user.role_granted_at = datetime.now(UTC)
             seeded.append(user)
 
+    await session.flush()  # new rows need ids before the log can point at them
+    for user in seeded:
+        audit.record(session, AuditAction.SUPER_ADMIN_SEEDED, None, target=user)
     await session.flush()
     return seeded

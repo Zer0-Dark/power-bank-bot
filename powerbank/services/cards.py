@@ -10,10 +10,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.audit import AuditAction
 from powerbank.core.cards import DEFAULT_CARD_TYPE, CardType
 from powerbank.core.exceptions import UserFacingError
 from powerbank.core.roles import Role
 from powerbank.db.models import Card, User
+from powerbank.services import audit
 
 MAX_NAME_LENGTH = 40
 MAX_USERNAME_LENGTH = 24
@@ -95,6 +97,16 @@ async def issue_card(session: AsyncSession, employee: User, details: CardDetails
         # the constraint on bank_number is the real guarantee.
         raise UserFacingError("هذا الرقم البنكي مستخدم بالفعل. اختر رقماً آخر.") from exc
 
+    audit.record(
+        session,
+        AuditAction.CARD_ISSUED,
+        employee,
+        card_id=card.id,
+        card_type=card.card_type.value,
+        bank_number=card.formatted_number,
+        real_name=card.real_name,
+        username=card.display_username,
+    )
     return card
 
 

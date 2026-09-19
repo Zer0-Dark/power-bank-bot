@@ -38,6 +38,8 @@ class Nav(StrEnum):
     COINS_NEW = "coins_new"  # super admin: start the batch-issuing flow
     STORE_CARDS = "store_cards"  # super admin: store-cards panel (per-type last code)
     STORE_CARDS_NEW = "store_cards_new"  # super admin: start the batch-issuing flow
+    HISTORY = "history"  # super admin: the audit log, newest first
+    HISTORY_PERSON = "history_person"  # super admin: filter the log to one person
     CANCEL = "cancel"
 
 
@@ -84,6 +86,13 @@ class CoinTypeCb(CallbackData, prefix="cointype"):
     """Coin denomination chosen at the start of the batch-issuing flow."""
 
     type: CoinType
+
+
+class HistoryCb(CallbackData, prefix="hist"):
+    """A page of the audit log. `who` is a Telegram id to filter by, 0 for everyone."""
+
+    page: int
+    who: int = 0
 
 
 class StoreCardTypeCb(CallbackData, prefix="sctype"):

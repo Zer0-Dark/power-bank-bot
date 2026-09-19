@@ -12,7 +12,9 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject, Update
 
+from powerbank.core.audit import AuditAction
 from powerbank.db.models import User
+from powerbank.services import audit
 from powerbank.services.users import record_denied_attempt
 
 log = logging.getLogger(__name__)
@@ -46,6 +48,11 @@ class AccessMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         last_denied = user.last_denied_at
+        first_in_window = _should_reply(last_denied)
+        # Logged once per cooldown window, not per message, so someone
+        # spamming the bot cannot flood the history.
+        if first_in_window:
+            audit.record(data["session"], AuditAction.ACCESS_DENIED, user)
         await record_denied_attempt(data["session"], user)
         log.info(
             "Denied access: tg=%s @%s attempts=%s",
@@ -65,7 +72,7 @@ class AccessMiddleware(BaseMiddleware):
             return None
 
         message = _extract_message(event)
-        if message is not None and _should_reply(last_denied):
+        if message is not None and first_in_window:
             await message.answer(text)
 
         return None  # handler chain stops here

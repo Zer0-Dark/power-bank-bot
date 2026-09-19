@@ -7,8 +7,10 @@ once and never edited; an admin mints many, one type at a time.
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.audit import AuditAction
 from powerbank.core.power_pass import PowerPassType, format_code
 from powerbank.db.models import PowerPassCard, PowerPassCounter, User
+from powerbank.services import audit
 from powerbank.services.batches import clean_batch_count as clean_batch_count
 
 
@@ -40,6 +42,7 @@ async def issue_batch(
     ]
     session.add_all(batch)
     await session.flush()
+    audit.record_batch(session, AuditAction.POWER_PASS_BATCH, admin, card_type.value, batch)
     return batch
 
 

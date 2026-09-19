@@ -9,8 +9,10 @@ there since it carries no coin-specific logic.
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.audit import AuditAction
 from powerbank.core.coins import CoinType, format_code
 from powerbank.db.models import CoinCard, CoinCounter, User
+from powerbank.services import audit
 
 
 async def reserve_codes(session: AsyncSession, coin_type: CoinType, count: int) -> range:
@@ -41,6 +43,7 @@ async def issue_batch(
     ]
     session.add_all(batch)
     await session.flush()
+    audit.record_batch(session, AuditAction.COIN_BATCH, admin, coin_type.value, batch)
     return batch
 
 

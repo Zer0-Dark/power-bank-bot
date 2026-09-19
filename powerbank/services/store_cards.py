@@ -8,8 +8,10 @@ once and never edited; a super admin mints many, one type at a time. Mirrors
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from powerbank.core.audit import AuditAction
 from powerbank.core.store_cards import StoreCardType, format_code
 from powerbank.db.models import StoreCard, StoreCardCounter, User
+from powerbank.services import audit
 
 
 async def reserve_codes(session: AsyncSession, card_type: StoreCardType, count: int) -> range:
@@ -39,6 +41,7 @@ async def issue_batch(
     ]
     session.add_all(batch)
     await session.flush()
+    audit.record_batch(session, AuditAction.STORE_CARD_BATCH, admin, card_type.value, batch)
     return batch
 
 

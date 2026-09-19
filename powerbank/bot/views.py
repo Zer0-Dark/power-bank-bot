@@ -8,14 +8,20 @@ Every Latin run -- @usernames, IDs, command names, the brand -- goes through
 the client; see `core/text.py`.
 """
 
+from datetime import UTC, datetime, tzinfo
+from html import escape
+
 from aiogram.utils.markdown import hbold
 
+from powerbank.core.audit import AuditAction
+from powerbank.core.cards import CardType
 from powerbank.core.coins import CoinType
 from powerbank.core.power_pass import PowerPassType
 from powerbank.core.roles import Role
 from powerbank.core.store_cards import StoreCardType
 from powerbank.core.text import cmd, code, ltr
-from powerbank.db.models import Card, CoinCard, PowerPassCard, StoreCard, User
+from powerbank.db.models import AuditEvent, Card, CoinCard, PowerPassCard, StoreCard, User
+from powerbank.services.audit import HistoryPage
 
 BRAND = ltr("Power Bank")
 
@@ -313,3 +319,91 @@ def _issued_at(card: Card) -> str:
 def _is_latin(value: str) -> bool:
     """Whether a value needs LTR isolation (no Arabic letters in it)."""
     return not any("؀" <= ch <= "ۿ" for ch in value)
+
+
+# --- history (audit log) -------------------------------------------------------
+
+ASK_HISTORY_PERSON = "أرسل المعرّف الرقمي أو @اسم_المستخدم لعرض سجل هذا الشخص فقط."
+HISTORY_EMPTY = "لا توجد أي عمليات مسجلة بعد."
+
+
+def _who(user: User | None) -> str:
+    """The person on a history line; None means the bot itself."""
+    if user is None:
+        return "🤖 النظام"
+    return ltr(escape(user.display))
+
+
+def _label(enum: type, value: str | None) -> str:
+    """An enum value's Arabic label, falling back to the raw value if unknown."""
+    try:
+        return enum(value).label
+    except ValueError:
+        return escape(str(value))
+
+
+def _batch_line(label: str, d: dict) -> str:
+    return (
+        f"أصدر {ltr(d.get('count'))} × {hbold(label)}\n"
+        f"    من {code(d.get('first'))} إلى {code(d.get('last'))}"
+    )
+
+
+def _event_text(event: AuditEvent) -> str:
+    """What happened, as one Arabic sentence (plus a detail line for batches)."""
+    d = event.details or {}
+    target = _who(event.target) if event.target_id else "—"
+    match event.action:
+        case AuditAction.MEMBER_ADDED:
+            return f"أضاف {target} بصفة {hbold(_label(Role, d.get('role')))}"
+        case AuditAction.ROLE_CHANGED:
+            return (
+                f"غيّر صلاحية {target} من {_label(Role, d.get('previous_role'))} "
+                f"إلى {hbold(_label(Role, d.get('role')))}"
+            )
+        case AuditAction.MEMBER_REMOVED:
+            previous = d.get("previous_role")
+            was = f" (كان {_label(Role, previous)})" if previous else ""
+            return f"أزال {target}{was}"
+        case AuditAction.SUPER_ADMIN_SEEDED:
+            return f"عيّن {target} {hbold('مشرفاً عاماً')} من الإعدادات"
+        case AuditAction.CARD_ISSUED:
+            return (
+                f"أصدر بطاقة {hbold(_label(CardType, d.get('card_type')))} "
+                f"رقم {code(d.get('bank_number'))} لـ {_name(escape(str(d.get('real_name', ''))))}"
+            )
+        case AuditAction.CARD_VIEWED:
+            found = d.get("bank_number")
+            result = f"← {code(found)}" if found else "← لم يُعثر عليها"
+            return f"بحث عن بطاقة «{escape(str(d.get('query', '')))}» {result}"
+        case AuditAction.POWER_PASS_BATCH:
+            return _batch_line(_label(PowerPassType, d.get("type")), d)
+        case AuditAction.COIN_BATCH:
+            return _batch_line(_label(CoinType, d.get("type")), d)
+        case AuditAction.STORE_CARD_BATCH:
+            return _batch_line(_label(StoreCardType, d.get("type")), d)
+        case AuditAction.ACCESS_DENIED:
+            return "حاول استخدام البوت بدون صلاحية"
+    return escape(str(event.action))
+
+
+def _when(moment: datetime, tz: tzinfo) -> str:
+    if moment.tzinfo is None:  # SQLite returns naive datetimes; they are UTC
+        moment = moment.replace(tzinfo=UTC)
+    return ltr(f"{moment.astimezone(tz):%Y-%m-%d %H:%M}")
+
+
+def history_page(page: HistoryPage, tz: tzinfo, person: User | None = None) -> str:
+    """One page of the audit log, newest first."""
+    title = "📜 السجل" if person is None else f"📜 سجل {ltr(escape(person.display))}"
+    head = f"{hbold(title)} — {ltr(page.total)} عملية"
+    if not page.events:
+        return f"{head}\n\n{HISTORY_EMPTY}"
+
+    blocks = [
+        f"{event.action.icon} {_when(event.created_at, tz)} — {_who(event.actor)}\n"
+        f"{_event_text(event)}"
+        for event in page.events
+    ]
+    footer = f"صفحة {ltr(page.page + 1)} من {ltr(page.pages)}"
+    return f"{head}\n\n" + "\n\n".join(blocks) + f"\n\n{footer}"

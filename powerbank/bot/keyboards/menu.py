@@ -8,6 +8,7 @@ from powerbank.bot.callbacks import (
     CoinTypeCb,
     ConfirmCb,
     EmployeeCardsCb,
+    HistoryCb,
     Nav,
     NavCb,
     PowerPassTypeCb,
@@ -48,6 +49,7 @@ def admin_menu(role: Role) -> InlineKeyboardMarkup:
         builder.row(_nav("🎫 باور باس", Nav.POWER_PASS))
         builder.row(_nav("🪙 عملات", Nav.COINS))
         builder.row(_nav("🛒 بطاقات المتجر", Nav.STORE_CARDS))
+        builder.row(_nav("📜 السجل", Nav.HISTORY))
     builder.row(_nav("⬅️ رجوع", Nav.MAIN))
     return builder.as_markup()
 
@@ -176,6 +178,31 @@ def coins_issued_actions() -> InlineKeyboardMarkup:
     """Attached after a batch is delivered so the admin can keep going."""
     builder = InlineKeyboardBuilder()
     builder.row(_nav("🪙 إصدار دفعة أخرى", Nav.COINS_NEW))
+    builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
+    return builder.as_markup()
+
+
+def history_nav(page: int, pages: int, who: int = 0) -> InlineKeyboardMarkup:
+    """Paging for the audit log, plus the per-person filter and a way back."""
+    builder = InlineKeyboardBuilder()
+    paging = []
+    if page > 0:
+        paging.append(
+            InlineKeyboardButton(
+                text="➡️ الأحدث", callback_data=HistoryCb(page=page - 1, who=who).pack()
+            )
+        )
+    if page + 1 < pages:
+        paging.append(
+            InlineKeyboardButton(
+                text="الأقدم ⬅️", callback_data=HistoryCb(page=page + 1, who=who).pack()
+            )
+        )
+    if paging:
+        builder.row(*paging)
+    if who:
+        builder.row(_nav("📜 كل السجل", Nav.HISTORY))
+    builder.row(_nav("🔍 سجل شخص", Nav.HISTORY_PERSON))
     builder.row(_nav("⬅️ رجوع", Nav.ADMIN))
     return builder.as_markup()
 

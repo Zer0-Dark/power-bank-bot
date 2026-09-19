@@ -1,8 +1,10 @@
 """Typed application settings, loaded from environment / .env."""
 
+from datetime import UTC, tzinfo
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -38,6 +40,8 @@ class Settings(BaseSettings):
     # --- Runtime ---
     environment: Literal["dev", "prod"] = Field(default="dev", alias="ENVIRONMENT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # Times are stored in UTC; this is only the zone they are *shown* in.
+    timezone: str = Field(default="Africa/Cairo", alias="TIMEZONE")
 
     # --- Assets ---
     assets_dir: Path = Field(default=PROJECT_ROOT / "assets", alias="ASSETS_DIR")
@@ -49,6 +53,14 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [int(part) for part in v.split(",") if part.strip()]
         return v
+
+    @property
+    def tz(self) -> tzinfo:
+        """The display zone, falling back to UTC if the name is unknown here."""
+        try:
+            return ZoneInfo(self.timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            return UTC
 
     @property
     def is_sqlite(self) -> bool:

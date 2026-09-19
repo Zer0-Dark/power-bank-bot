@@ -6,28 +6,11 @@ throwaway SQLite file and checks the card rework's backfill.
 """
 
 import sqlite3
-from pathlib import Path
 
-import pytest
 from alembic import command
-from alembic.config import Config
 
-from powerbank.core.config import get_settings
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CARD_REWORK = "c977b6426465"
 CARD_REWORK_PARENT = "8c35e4f3106d"
-
-
-@pytest.fixture
-def alembic_cfg(tmp_path, monkeypatch):
-    db = tmp_path / "mig.db"
-    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db}")
-    get_settings.cache_clear()  # env.py reads get_settings() at import
-    monkeypatch.chdir(PROJECT_ROOT)
-    cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
-    yield cfg, db
-    get_settings.cache_clear()
 
 
 def _columns(db, table) -> set[str]:
