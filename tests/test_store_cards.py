@@ -101,13 +101,18 @@ def test_every_type_has_an_existing_template_and_a_code_field():
 
 
 def test_every_type_code_box_sits_inside_its_template():
-    # Left-anchored ("lm"): the box runs from x to x + max_width.
+    # Stretched codes are centred on x and span stretch_to; the rest are
+    # left-anchored ("lm") and run from x to x + max_width.
     for card_type in StoreCardType:
         layout = LAYOUTS[card_type]
         width, height = Image.open(layout.template).size
         field = layout.fields["code"]
-        assert field.anchor == "lm"
-        assert field.x > 0 and field.x + field.max_width <= width, card_type.value
+        if field.stretch_to:
+            half = field.stretch_to // 2
+            assert field.x - half > 0 and field.x + half <= width, card_type.value
+        else:
+            assert field.anchor == "lm"
+            assert field.x > 0 and field.x + field.max_width <= width, card_type.value
         assert 0 < field.y < height, card_type.value
 
 

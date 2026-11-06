@@ -1,23 +1,24 @@
 {
-  "_note": "Store card -- 48h visit card (light blue). White Munro code, left-aligned at the start of the code bar (anchor 'lm', so 'center' is the left-middle point) to match the samples.",
+  "_note": "Store card -- 48h visit card (green, near-black code on the bright green bar). Munro code centred in the code bar and stretched to a fixed width (stretch_to).",
   "template": "store-cards/visit_48_empty.jpg",
   "font": "Munro-2LYe.ttf",
   "color": [
-    245,
-    245,
-    245
+    30,
+    30,
+    32
   ],
   "min_font_size": 40,
   "output_width": 1200,
   "fields": {
     "code": {
       "center": [
-        1965,
-        1612
+        2167,
+        1499
       ],
-      "anchor": "lm",
-      "max_width": 930,
-      "font_size": 154
+      "anchor": "mm",
+      "max_width": 850,
+      "font_size": 140,
+      "stretch_to": 850
     }
   }
 }

@@ -57,6 +57,11 @@ class Field:
     `anchor` is a Pillow text anchor for the point: the default ``"mm"`` centres
     the value in its bar, while ``"lm"`` pins its left edge -- for a value that
     must start right after a label baked into the art, whatever its length.
+
+    `stretch_to`, when set, draws the value at exactly `font_size` and then
+    scales it horizontally to that many pixels wide, centred on the point --
+    for a fixed-length code that should span its bar the same way every time.
+    `max_width` and `anchor` are ignored for such a field.
     """
 
     x: int
@@ -65,6 +70,7 @@ class Field:
     font_size: int
     font: str | None = None
     anchor: str = "mm"
+    stretch_to: int | None = None
 
     @classmethod
     def from_dict(cls, raw: dict) -> Field:
@@ -75,6 +81,7 @@ class Field:
             font_size=raw["font_size"],
             font=raw.get("font"),
             anchor=raw.get("anchor", "mm"),
+            stretch_to=raw.get("stretch_to"),
         )
 
 
@@ -222,6 +229,27 @@ def _draw_value(
     image.paste(ramp, (left, top), mask)
 
 
+def _draw_stretched(
+    image: Image.Image,
+    xy: tuple[int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    width: int,
+    color: tuple[int, int, int],
+) -> None:
+    """`text` scaled horizontally to exactly `width` px, centred on `xy`.
+
+    Pillow cannot stretch glyphs, so the text is drawn into a tight mask at its
+    natural width, the mask is resized, and the colour is poured through it.
+    """
+    left, top, right, bottom = font.getbbox(text)
+    mask = Image.new("L", (right - left, bottom - top), 0)
+    ImageDraw.Draw(mask).text((-left, -top), text, font=font, fill=255)
+    mask = mask.resize((width, mask.height), Image.LANCZOS)
+    origin = (xy[0] - width // 2, xy[1] - mask.height // 2)
+    image.paste(Image.new("RGBA", mask.size, (*color, 255)), origin, mask)
+
+
 def render(layout: Layout, values: dict[str, str]) -> BytesIO:
     """Draw `values` onto the template and return a PNG buffer.
 
@@ -235,6 +263,12 @@ def render(layout: Layout, values: dict[str, str]) -> BytesIO:
         if raw in (None, ""):
             continue
         font_path = str(layout.font_for(name))
+        if field.stretch_to:
+            font = load_font(font_path, field.font_size)
+            _draw_stretched(
+                image, (field.x, field.y), str(raw), font, field.stretch_to, layout.color
+            )
+            continue
         font, text = fit_text(
             draw, str(raw), font_path, field, layout.min_font_size, layout.stroke_width
         )
